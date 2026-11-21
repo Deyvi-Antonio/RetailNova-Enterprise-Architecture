@@ -121,6 +121,25 @@ services:
     ports: ["8004:8000"]
     networks: [retailnova]
 
+  etl:
+    build: ./etl
+    restart: unless-stopped
+    environment:
+      ERP_DB_URL: "postgresql+psycopg://erp:${ERP_DB_PASSWORD}@erp-db:5432/erp"
+      CRM_DB_URL: "postgresql+psycopg://crm:${CRM_DB_PASSWORD}@crm-db:5432/crm"
+      ECOM_DB_URL: "postgresql+psycopg://ecom:${ECOM_DB_PASSWORD}@ecommerce-db:5432/ecommerce"
+      POS_DB_URL: "postgresql+psycopg://pos:${POS_DB_PASSWORD}@pos-db:5432/pos"
+      DW_DB_URL: "postgresql+psycopg://dw:${DW_DB_PASSWORD}@dw-db:5432/dw"
+      ETL_INTERVAL_SECONDS: "30"   # carga automática cada 30 s (demo)
+    depends_on:
+      dw-db: { condition: service_healthy }
+      erp: { condition: service_started }
+      crm: { condition: service_started }
+      ecommerce: { condition: service_started }
+      pos: { condition: service_started }
+    ports: ["8005:8000"]
+    networks: [retailnova]
+
 networks:
   retailnova:
 

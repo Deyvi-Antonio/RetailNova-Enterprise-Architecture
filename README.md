@@ -54,3 +54,11 @@ Buenas prácticas incluidas: bandeja de salida (outbox) con reintento automátic
 Probar (con los contenedores arriba): `python scripts/demo_eventos.py` → debe terminar en `RESULTADO: OK`.
 
 > Al actualizar desde el Sprint 1: `docker compose down -v` y luego `docker compose up -d --build` (cambió el esquema del ERP).
+
+## Sprint 3: Data Warehouse y panel gerencial
+- **ETL** (servicio `etl`): cada 30 s lee las bases del ERP, CRM, e-commerce y POS y carga el **Data Warehouse** (`dw-db`) en un modelo estrella: `fact_sales`, `fact_orders`, `dim_product`, `dim_customer`, `dim_channel`, `dim_date`. Carga completa en una sola transacción (todo o nada) y registro de cada corrida en `etl_runs`.
+- **Panel gerencial:** http://localhost:8005. Muestra ventas totales, facturas, ticket promedio, ventas por canal y por día, top productos, stock con alerta, tasa de rechazo web y ventas de tienda en cola. Calcula todo **solo desde el DW**, nunca desde las bases operativas.
+- **Ley N.º 29733 (minimización):** el DW no guarda nombres, correos ni documentos; solo el ID seudónimo del CRM.
+- El botón "Actualizar datos (ETL)" fuerza una carga inmediata.
+
+![Panel gerencial](docs/panel-gerencial.png)
