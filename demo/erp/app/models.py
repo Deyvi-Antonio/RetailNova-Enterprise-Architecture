@@ -25,6 +25,8 @@ class Invoice(Base):
     subtotal: Mapped[Decimal] = mapped_column(Numeric(12, 2))
     igv: Mapped[Decimal] = mapped_column(Numeric(12, 2))
     total: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    origin: Mapped[str] = mapped_column(String(20), default="api")              # api | ecommerce | pos
+    order_ref: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)  # ID del pedido/venta de origen
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     items: Mapped[list["InvoiceItem"]] = relationship(back_populates="invoice", cascade="all, delete-orphan")
 
@@ -37,3 +39,10 @@ class InvoiceItem(Base):
     qty: Mapped[int] = mapped_column(Integer)
     unit_price: Mapped[Decimal] = mapped_column(Numeric(12, 2))
     invoice: Mapped[Invoice] = relationship(back_populates="items")
+
+
+class ProcessedEvent(Base):
+    """Eventos ya procesados: evita facturar dos veces el mismo pedido (idempotencia)."""
+    __tablename__ = "processed_events"
+    event_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    processed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)

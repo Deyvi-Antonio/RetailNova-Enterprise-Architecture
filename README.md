@@ -38,3 +38,19 @@ Sprint 0 base · 1 ERP+CRM+ID único · 2 e-commerce+POS+eventos · 3 DW+dashboa
 - Demo rápida (con los contenedores arriba): `pip install httpx && python demo/scripts/seed_and_demo.py`
 - Pruebas: `cd demo/crm && pip install -r requirements-dev.txt && pytest` (igual en `demo/erp`).
 - Pendiente de sprints siguientes: autenticación Keycloak (Sprint 4), eventos RabbitMQ (Sprint 2).
+
+## Sprint 2: e-commerce, POS de tienda y eventos (RabbitMQ)
+| Sistema | Dirección | Base propia |
+|---|---|---|
+| Tienda online (e-commerce) | http://localhost:8003 | `ecommerce-db` |
+| Caja de tienda (POS) | http://localhost:8004 | `pos-db` |
+
+Flujo:
+1. **Pedido web:** el e-commerce registra al cliente en el CRM (ID único, llamada síncrona), guarda el pedido en su base y publica `order.created`. El ERP factura, descuenta stock y responde `invoice.created.ecommerce` (o `order.rejected.ecommerce` si no hay stock).
+2. **Venta en tienda:** el POS guarda la venta en su base **aunque no haya red** (estado `EN_COLA`). Cuando vuelve la red, la envía como `sale.created` y el ERP responde `invoice.created.pos`.
+
+Buenas prácticas incluidas: bandeja de salida (outbox) con reintento automático, idempotencia en el ERP (un mismo evento nunca factura dos veces), reintento si el CRM está caído y cola `retailnova.dead-letters` para mensajes inválidos.
+
+Probar (con los contenedores arriba): `python scripts/demo_eventos.py` → debe terminar en `RESULTADO: OK`.
+
+> Al actualizar desde el Sprint 1: `docker compose down -v` y luego `docker compose up -d --build` (cambió el esquema del ERP).
