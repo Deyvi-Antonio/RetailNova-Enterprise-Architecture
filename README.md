@@ -31,3 +31,10 @@ Detener: `docker compose down` (conserva datos) · `docker compose down -v` (bor
 
 ## Plan
 Sprint 0 base · 1 ERP+CRM+ID único · 2 e-commerce+POS+eventos · 3 DW+dashboard · 4 seguridad+pruebas+guion.
+
+## Sprint 1: CRM y ERP
+- CRM (http://localhost:8001/docs): clientes con **ID único**; un documento o correo repetido devuelve el mismo cliente (no duplica).
+- ERP (http://localhost:8002/docs): productos, stock y facturas con IGV 18 %. Valida el `customer_id` llamando a la API del CRM; guarda solo la referencia (sin compartir base de datos).
+- Demo rápida (con los contenedores arriba): `pip install httpx && python demo/scripts/seed_and_demo.py`
+- Pruebas: `cd demo/crm && pip install -r requirements-dev.txt && pytest` (igual en `demo/erp`).
+- Pendiente de sprints siguientes: autenticación Keycloak (Sprint 4), eventos RabbitMQ (Sprint 2).
