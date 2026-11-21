@@ -6,7 +6,7 @@ import os
 from datetime import datetime, date, timezone, timedelta
 from decimal import Decimal
 from sqlalchemy import create_engine, text, insert, delete
-from .dw import md, dim_date, dim_product, dim_customer, dim_channel, fact_sales, fact_orders, etl_runs, DIMS_AND_FACTS
+from .dw import md, dim_date, dim_product, dim_customer, dim_store, dim_channel, fact_sales, fact_orders, etl_runs, DIMS_AND_FACTS
 
 log = logging.getLogger("etl")
 PERU = timezone(timedelta(hours=-5))  # Perú no tiene horario de verano
@@ -14,7 +14,11 @@ IGV = Decimal("0.18")
 MESES = ["", "enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto",
          "septiembre", "octubre", "noviembre", "diciembre"]
 DIAS = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
-CHANNELS = {"ecommerce": "Tienda online", "pos": "Tienda física (POS)", "api": "Venta directa (API ERP)"}
+CHANNELS = {"ecommerce": "Tienda online", "pos": "Tiendas físicas", "api": "Venta directa (API ERP)"}
+# Tiendas de la demo (sintéticas: el caso RetailNova no detalla sus locales)
+STORES = [{"store_id": "LIM-01", "name": "Miraflores", "district": "Miraflores, Lima"},
+          {"store_id": "LIM-02", "name": "San Miguel", "district": "San Miguel, Lima"},
+          {"store_id": "LIM-03", "name": "Los Olivos", "district": "Los Olivos, Lima"}]
 
 
 def _engine(var, default=""):
@@ -62,10 +66,10 @@ def _rows(eng, sql):
 def extract() -> dict:
     e = engines()
     return {
-        "invoices": _rows(e["erp"], "SELECT i.id, i.customer_id, i.origin, i.order_ref, i.created_at, "
+        "invoices": _rows(e["erp"], "SELECT i.id, i.customer_id, i.origin, i.order_ref, i.store_id, i.created_at, "
                                     "it.sku, it.qty, it.unit_price FROM invoices i "
                                     "JOIN invoice_items it ON it.invoice_id = i.id"),
-        "products": _rows(e["erp"], "SELECT sku, name, price, stock FROM products"),
+        "products": _rows(e["erp"], "SELECT sku, name, category, price, stock FROM products"),
         "customers": _rows(e["crm"], "SELECT customer_id, doc_type, created_at FROM customers"),
         "orders": _rows(e["ecommerce"], "SELECT id, status, invoice_id, created_at FROM orders"),
         "sales": _rows(e["pos"], "SELECT id, store_id, status, invoice_id, created_at FROM sales"),
@@ -84,11 +88,12 @@ def transform(src: dict) -> dict:
     store_by_sale = {s["id"]: s["store_id"] for s in src["sales"]}
     sales = []
     for r in src["invoices"]:
-        net = _dec(r["unit_price"]) * int(r["qty"])
-        igv = (net * IGV).quantize(Decimal("0.01"))
+        total = (_dec(r["unit_price"]) * int(r["qty"]) * (1 + IGV)).quantize(Decimal("0.01"))
+        net = (total / (1 + IGV)).quantize(Decimal("0.01"))
+        igv = total - net
         sales.append({"invoice_id": r["id"], "date_key": dk(r["created_at"]), "customer_id": r["customer_id"],
                       "sku": r["sku"], "channel": r["origin"],
-                      "store_id": store_by_sale.get(r["order_ref"]) if r["origin"] == "pos" else None,
+                      "store_id": (r.get("store_id") or store_by_sale.get(r["order_ref"])) if r["origin"] == "pos" else None,
                       "qty": int(r["qty"]), "unit_price": _dec(r["unit_price"]),
                       "amount_net": net, "amount_igv": igv, "amount_total": net + igv})
     orders = ([{"order_ref": o["id"], "source": "ecommerce", "status": o["status"], "date_key": dk(o["created_at"]),
@@ -97,12 +102,13 @@ def transform(src: dict) -> dict:
                 "invoice_id": s["invoice_id"]} for s in src["sales"]])
     customers = [{"customer_id": c["customer_id"], "doc_type": c["doc_type"],
                   "registered_date_key": dk(c["created_at"])} for c in src["customers"]]
-    products = [{"sku": p["sku"], "name": p["name"], "list_price": _dec(p["price"]), "current_stock": int(p["stock"])}
+    products = [{"sku": p["sku"], "name": p["name"], "category": p.get("category") or "General", "list_price": _dec(p["price"]), "current_stock": int(p["stock"])}
                 for p in src["products"]]
     channels = [{"channel": k, "description": v} for k, v in CHANNELS.items()]
     dims_date = [{"date_key": k, "date": d, "year": d.year, "month": d.month, "day": d.day,
                   "month_name": MESES[d.month], "weekday_name": DIAS[d.weekday()]} for k, d in dates.items()]
     return {"dim_date": dims_date, "dim_product": products, "dim_customer": customers, "dim_channel": channels,
+            "dim_store": STORES,
             "fact_sales": sales, "fact_orders": orders}
 
 

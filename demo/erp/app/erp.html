@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ERP de RetailNova</title><link rel="stylesheet" href="/static/ui.css">
+<script src="/static/ui.js"></script><script src="/static/auth.js"></script>
+<style>
+.hero{background:linear-gradient(120deg,#022c22 0%,#065f46 50%,#10b981 100%)}
+.erp-logo{display:inline-flex;align-items:center;gap:10px}
+.erp-logo b{background:#fff;color:#065f46;padding:4px 12px;border-radius:10px;font-size:26px;letter-spacing:.5px}
+.tabs{display:flex;gap:6px;margin-bottom:14px}.tabs button{border:0;background:#e2e8f0;padding:9px 16px;border-radius:10px;cursor:pointer;font-weight:600}
+.tabs button.on{background:#065f46;color:#fff}
+.sbar{background:#eef2f7;height:8px;border-radius:4px;width:120px;overflow:hidden;display:inline-block;vertical-align:middle;margin-right:8px}
+.sbar i{display:block;height:100%;background:#10b981}.sbar i.BAJO{background:#f59e0b}.sbar i.AGOTADO{background:#dc2626}
+</style></head><body>
+<div id="rn-nav"></div>
+<section class="hero"><div class="wrap"><div>
+  <h1 class="erp-logo"><b id="brand">ERP</b> <span id="tag">Sistema de Administración de Productos</span></h1>
+  <p>ERP de RetailNova: dueño oficial del catálogo, los precios, el stock y la facturación de todos los canales.</p>
+  <div class="pills"><span>📦 Inventario</span><span>🧾 Facturación con IGV</span><span>🔄 Recibe ventas online y de tiendas por eventos</span></div>
+</div><div id="session"></div></div></section>
+<main><div class="wrap">
+  <div class="kpis"><div class="kpi"><div class="ic">🏷️</div><div><span>Productos activos</span><b id="k1">–</b></div></div>
+    <div class="kpi"><div class="ic">📦</div><div><span>Unidades en stock</span><b id="k2">–</b></div></div>
+    <div class="kpi"><div class="ic">💰</div><div><span>Valor del inventario (sin IGV)</span><b id="k3">–</b></div></div>
+    <div class="kpi"><div class="ic" style="background:#fff4e0">⚠️</div><div><span>Productos con stock bajo</span><b id="k4">–</b></div></div></div>
+  <div class="tabs"><button class="on" id="t1" onclick="tab(1)">📦 Inventario</button><button id="t2" onclick="tab(2)">🧾 Facturas</button></div>
+  <div class="card" id="p1"><div id="inv"></div></div>
+  <div class="card" id="p2" style="display:none"><div id="gate"></div><div id="fact"></div></div>
+</div></main>
+<footer>Demo académica · Datos sintéticos · El nombre del ERP se configura con la variable ERP_BRAND</footer>
+<script>
+const $=id=>document.getElementById(id),E=RN.esc;
+function tab(n){[1,2].forEach(i=>{$('p'+i).style.display=i===n?'':'none';$('t'+i).classList.toggle('on',i===n)});if(n===2)loadInv()}
+async function loadProducts(){const ps=await (await fetch('/products')).json();const max=Math.max(1,...ps.map(p=>p.stock));
+  $('k1').textContent=ps.length;$('k2').textContent=RN.num(ps.reduce((a,p)=>a+p.stock,0));
+  $('k3').textContent=RN.sol(ps.reduce((a,p)=>a+p.price*p.stock,0));$('k4').textContent=ps.filter(p=>p.stock<=5).length;
+  $('inv').innerHTML=`<table><tr><th>SKU</th><th>Producto</th><th>Categoría</th><th class="right">Precio sin IGV</th><th class="right">Precio con IGV</th><th>Stock</th><th>Estado</th></tr>`+
+   ps.map(p=>{const st=RN.stockState(p.stock);return `<tr><td class="mono">${E(p.sku)}</td><td>${E(p.name)}</td><td>${RN.cat[p.category]||''} ${E(p.category)}</td>
+   <td class="right">${RN.sol(p.price)}</td><td class="right">${RN.sol(RN.conIgv(p.price))}</td>
+   <td><span class="sbar"><i class="${st}" style="width:${100*p.stock/max}%"></i></span>${p.stock}</td><td>${RN.chip(st)}</td></tr>`}).join('')+'</table>';}
+async function loadInv(){const r=await Auth.api('/invoices?limit=60');if(!RN.gate('gate',r,'Gerencia')){$('fact').innerHTML='';return}
+  $('fact').innerHTML=`<table><tr><th>N.º</th><th>Fecha</th><th>Canal</th><th>Tienda</th><th>Cliente (ID CRM)</th><th class="right">Subtotal</th><th class="right">IGV</th><th class="right">Total</th></tr>`+
+   r.data.map(i=>`<tr><td><b>${E(i.id)}</b></td><td>${E(new Date(i.created_at).toLocaleString('es-PE'))}</td><td>${RN.channel(i.origin)}</td>
+   <td>${i.store_id?E(RN.store(i.store_id)):'—'}</td><td class="mono">${i.customer_id==='CONSUMIDOR_FINAL'?'Consumidor final':E(i.customer_id.slice(0,8))+'…'}</td>
+   <td class="right">${RN.sol(i.subtotal)}</td><td class="right">${RN.sol(i.igv)}</td><td class="right"><b>${RN.sol(i.total)}</b></td></tr>`).join('')+'</table>';}
+fetch('/brand').then(r=>r.json()).then(b=>{$('brand').textContent=b.name;$('tag').textContent=b.tagline;document.title=b.name+' · ERP de RetailNova'});
+(async()=>{await Auth.handleCallback();RN.sessionBox('session');loadProducts();setInterval(loadProducts,5000);})();
+</script></body></html>

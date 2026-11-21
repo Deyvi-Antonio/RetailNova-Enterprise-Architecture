@@ -1,48 +1,100 @@
 <!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>RetailNova · Tienda online</title>
+<title>RetailNova · Tienda online</title><link rel="stylesheet" href="/static/ui.css"><script src="/static/ui.js"></script>
 <style>
-body{font-family:system-ui,Segoe UI,sans-serif;max-width:1000px;margin:24px auto;padding:0 16px;color:#1d2433}
-h1{margin:0 0 4px;color:#1f3864}small{color:#667}h3{margin-top:24px}
-table{width:100%;border-collapse:collapse;margin:8px 0}th,td{padding:6px 8px;border-bottom:1px solid #e3e6ec;text-align:left;font-size:14px}
-input{padding:6px;border:1px solid #c8cdd6;border-radius:6px}button{padding:8px 16px;border:0;border-radius:6px;background:#1f3864;color:#fff;cursor:pointer;font-size:14px}
-.grid{display:grid;grid-template-columns:1fr 2fr 2fr;gap:8px}#msg{margin:8px 0;color:#b00020}
-.b{padding:2px 8px;border-radius:10px;font-size:12px;font-weight:600}
-.PENDIENTE{background:#fff3cd}.ENVIADO{background:#dbe7ff}.CONFIRMADO{background:#d4f5dd}.RECHAZADO{background:#fde0e0}
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.filters button{border:1px solid var(--line);background:#fff;border-radius:999px;padding:7px 14px;cursor:pointer;font-size:13px}
+.filters button.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+.products{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px}
+.prod{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);padding:14px;display:flex;flex-direction:column;gap:6px;transition:transform .15s}
+.prod:hover{transform:translateY(-3px)}
+.prod .img{height:110px;border-radius:12px;display:grid;place-items:center;font-size:54px;background:linear-gradient(135deg,#eef2ff,#fff7ed)}
+.prod .cat{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.prod .name{font-weight:600;font-size:14px;min-height:38px}
+.prod .price{font-size:20px;font-weight:700;color:var(--navy)}
+.prod .row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.cart-line{display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px dashed var(--line);font-size:13px}
+.qty{display:flex;align-items:center;gap:6px}.qty button{width:26px;height:26px;border-radius:8px;border:0;background:#eef2ff;cursor:pointer}
+.tot{display:flex;justify-content:space-between;font-size:13px;margin:6px 0}.tot.big{font-size:18px;font-weight:700}
+.order{display:grid;grid-template-columns:110px 1fr auto;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
+.steps{display:flex;gap:6px;align-items:center;font-size:11px;color:var(--muted);margin-top:6px}
+.steps i{width:22px;height:4px;border-radius:2px;background:#e2e8f0;display:inline-block}.steps i.on{background:var(--ok)}.steps i.bad{background:var(--bad)}
 </style></head><body>
-<h1>RetailNova · Tienda online</h1>
-<small>E-commerce con su propia base de datos. El cliente se registra en el CRM (ID único) y el pedido viaja al ERP por un evento en RabbitMQ.</small>
-<h3>Catálogo <small id="catState"></small></h3><table id="cat"></table>
-<h3>Cliente</h3>
-<div class="grid"><input id="doc" value="45678912" placeholder="DNI"><input id="name" value="María Quispe" placeholder="Nombre completo"><input id="email" value="maria@example.com" placeholder="Correo"></div>
-<p><button onclick="buy()">Comprar</button></p><div id="msg"></div>
-<h3>Pedidos recientes</h3><table id="ord"></table>
+<div id="rn-nav"></div>
+<section class="hero"><div class="wrap"><div>
+  <h1>Tecnología que te acompaña ⚡</h1>
+  <p>Compra online en RetailNova y recoge en cualquiera de nuestras tiendas de Lima. Mismos precios y promociones en todos los canales.</p>
+  <div class="pills"><span>🚚 Delivery en Lima</span><span>🏬 Recojo en Miraflores, San Miguel y Los Olivos</span><span>🛡️ Garantía oficial</span><span>💳 Precios incluyen IGV</span></div>
+</div></div></section>
+<main><div class="wrap layout">
+  <div>
+    <div class="filters" id="filters"></div>
+    <div class="products" id="products"></div>
+    <div class="card" style="margin-top:18px"><h3>📦 Mis pedidos <span class="small muted">(se actualizan solos)</span></h3><div id="orders"></div></div>
+  </div>
+  <aside class="card sticky">
+    <h3>🛒 Tu carrito</h3><div id="cart"><div class="empty">Aún no agregas productos.</div></div>
+    <div id="totals"></div>
+    <label>DNI</label><input id="doc" value="45678912" maxlength="8">
+    <label>Nombre completo</label><input id="name" value="María Quispe Huamán">
+    <label>Correo</label><input id="email" value="maria.quispe@example.com">
+    <p style="margin:14px 0 6px"><button class="btn accent block" id="pay" onclick="buy()">Pagar pedido</button></p>
+    <div id="msg" class="small" style="color:var(--bad)"></div>
+    <p class="small muted">Tus datos se registran en el CRM de RetailNova con un ID único y se tratan según la Ley N.º 29733.</p>
+  </aside>
+</div></main>
+<footer>RetailNova S.A. · Demo académica de Arquitectura Empresarial (TOGAF) · Datos sintéticos</footer>
 <script>
-const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const $=id=>document.getElementById(id);
+let catalog=[], cart={}, filter='Todos';
+const $=id=>document.getElementById(id), E=RN.esc;
 async function loadCat(){
-  const j=await (await fetch('/catalog')).json();
-  $('catState').textContent=j.online?'(publicado por el ERP)':'(ERP sin respuesta: última copia)';
-  $('cat').innerHTML='<tr><th>SKU</th><th>Producto</th><th>Precio sin IGV</th><th>Stock</th><th>Cantidad</th></tr>'+
-    j.products.map(p=>`<tr><td>${esc(p.sku)}</td><td>${esc(p.name)}</td><td>S/ ${esc(p.price)}</td><td>${esc(p.stock)}</td>
-    <td><input type="number" min="0" value="0" data-sku="${esc(p.sku)}" style="width:70px"></td></tr>`).join('');
+  const j=await (await fetch('/catalog')).json(); catalog=j.products;
+  const cats=['Todos',...new Set(catalog.map(p=>p.category))];
+  $('filters').innerHTML=cats.map(c=>`<button class="${c===filter?'on':''}" onclick="filter='${E(c)}';loadView()">${RN.cat[c]||'🏷️'} ${E(c)}</button>`).join('');
+  loadView();
 }
-async function loadOrders(){
-  const os=await (await fetch('/orders')).json();
-  $('ord').innerHTML='<tr><th>Pedido</th><th>Ítems</th><th>Estado</th><th>Factura ERP</th><th>Total</th><th>Detalle</th></tr>'+
-    os.map(o=>`<tr><td>${esc(o.id.slice(0,8))}</td><td>${esc(o.items.map(i=>i.qty+'× '+i.sku).join(', '))}</td>
-    <td><span class="b ${esc(o.status)}">${esc(o.status)}</span></td><td>${esc(o.invoice_id??'—')}</td>
-    <td>${o.total?'S/ '+esc(o.total):'—'}</td><td>${esc(o.reason??'')}</td></tr>`).join('');
+function loadView(){
+  document.querySelectorAll('#filters button').forEach(b=>b.classList.toggle('on',b.textContent.includes(filter)));
+  const list=catalog.filter(p=>filter==='Todos'||p.category===filter);
+  $('products').innerHTML=list.map(p=>{const st=RN.stockState(p.stock);return `<div class="prod">
+    <div class="img">${RN.cat[p.category]||'📦'}</div><div class="cat">${E(p.category)} · ${E(p.sku)}</div>
+    <div class="name">${E(p.name)}</div>
+    <div class="price">${RN.sol(RN.conIgv(p.price))}</div>
+    <div class="row">${st==='OK'?`<span class="small muted">${p.stock} disponibles</span>`:RN.chip(st)}
+    <button class="btn ghost" ${p.stock<=0?'disabled':''} onclick="add('${E(p.sku)}')">Agregar</button></div></div>`}).join('')
+    ||'<div class="empty">El catálogo se carga desde el ERP…</div>';
+}
+function add(sku){cart[sku]=(cart[sku]||0)+1;drawCart()}
+function chg(sku,d){cart[sku]=(cart[sku]||0)+d;if(cart[sku]<=0)delete cart[sku];drawCart()}
+function drawCart(){
+  const items=Object.entries(cart);let sub=0;
+  $('cart').innerHTML=items.length?items.map(([s,q])=>{const p=catalog.find(x=>x.sku===s);sub+=RN.conIgv(p.price)*q;
+    return `<div class="cart-line"><div><b>${E(p.name)}</b><div class="muted">${RN.sol(RN.conIgv(p.price))} c/u</div></div>
+    <div class="qty"><button onclick="chg('${E(s)}',-1)">−</button>${q}<button onclick="chg('${E(s)}',1)">+</button></div></div>`}).join('')
+    :'<div class="empty">Aún no agregas productos.</div>';
+  const tot=Math.round(sub*100)/100,base=Math.round(tot/1.18*100)/100,igv=Math.round((tot-base)*100)/100;sub=base;
+  $('totals').innerHTML=items.length?`<div class="tot"><span>Subtotal</span><span>${RN.sol(sub)}</span></div>
+    <div class="tot"><span>IGV (18 %)</span><span>${RN.sol(igv)}</span></div><div class="tot big"><span>Total</span><span>${RN.sol(tot)}</span></div>`:'';
 }
 async function buy(){
-  const items=[...document.querySelectorAll('#cat input')].map(i=>({sku:i.dataset.sku,qty:+i.value})).filter(i=>i.qty>0);
-  $('msg').textContent='';
-  if(!items.length){$('msg').textContent='Elige al menos un producto.';return}
+  const items=Object.entries(cart).map(([sku,qty])=>({sku,qty}));$('msg').textContent='';
+  if(!items.length){$('msg').textContent='Agrega al menos un producto.';return}
+  $('pay').disabled=true;
   const r=await fetch('/orders',{method:'POST',headers:{'content-type':'application/json'},
     body:JSON.stringify({customer:{doc_type:'DNI',doc_number:$('doc').value,full_name:$('name').value,email:$('email').value},items})});
-  if(!r.ok){const j=await r.json();$('msg').textContent='Error: '+JSON.stringify(j.detail);return}
-  document.querySelectorAll('#cat input').forEach(i=>i.value=0);
-  loadOrders();setTimeout(loadCat,2500);
+  $('pay').disabled=false;
+  if(!r.ok){const j=await r.json();$('msg').textContent='No se pudo registrar: '+(typeof j.detail==='string'?j.detail:'revisa tus datos');return}
+  cart={};drawCart();loadOrders();setTimeout(loadCat,2500);
+}
+function steps(st){const n={PENDIENTE:1,ENVIADO:2,CONFIRMADO:3,RECHAZADO:3}[st]||0;
+  return `<div class="steps">${[1,2,3].map(i=>`<i class="${i<=n?(st==='RECHAZADO'&&i===3?'bad':'on'):''}"></i>`).join('')} Recibido → Enviado al ERP → ${st==='RECHAZADO'?'Rechazado':'Confirmado'}</div>`}
+async function loadOrders(){
+  const os=await (await fetch('/orders?limit=8')).json();
+  $('orders').innerHTML=os.length?os.map(o=>`<div class="order"><div class="mono">#${E(o.id.slice(0,8))}<div class="small muted">${new Date(o.created_at).toLocaleTimeString('es-PE')}</div></div>
+    <div>${E(o.items.map(i=>{const p=catalog.find(x=>x.sku===i.sku);return i.qty+'× '+(p?p.name:i.sku)}).join(', '))}
+    ${steps(o.status)}${o.reason?`<div class="small" style="color:var(--bad)">${E(o.reason)}</div>`:''}</div>
+    <div class="right">${RN.chip(o.status)}<div style="margin-top:6px;font-weight:700">${o.total?RN.sol(o.total):''}</div>
+    ${o.invoice_id?`<div class="small muted">Factura N.º ${E(o.invoice_id)}</div>`:''}</div></div>`).join(''):'<div class="empty">Todavía no hay pedidos.</div>';
 }
 loadCat();loadOrders();setInterval(loadOrders,2000);
 </script></body></html>

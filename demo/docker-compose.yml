@@ -97,6 +97,8 @@ services:
     environment:
       DATABASE_URL: "postgresql+psycopg://erp:${ERP_DB_PASSWORD}@erp-db:5432/erp"
       CRM_URL: "http://crm:8000"
+      ERP_BRAND: "SAP 2"   # nombre comercial del ERP en la demo (cámbialo para el MVP)
+      ERP_TAGLINE: "Sistema de Administración de Productos"
       AUTH_ENABLED: "true"
       KEYCLOAK_INTERNAL_URL: "http://keycloak:8080"
       SERVICE_CLIENT_SECRET: "${SERVICE_CLIENT_SECRET}"

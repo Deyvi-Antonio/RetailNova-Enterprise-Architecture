@@ -20,14 +20,14 @@ def sql(db, *stmts):
 
 
 def setup_module():
-    sql("erp", "CREATE TABLE products (sku TEXT, name TEXT, price NUMERIC, stock INT)",
-        "CREATE TABLE invoices (id INT, customer_id TEXT, subtotal NUMERIC, igv NUMERIC, total NUMERIC, origin TEXT, order_ref TEXT, created_at TIMESTAMP)",
+    sql("erp", "CREATE TABLE products (sku TEXT, name TEXT, category TEXT, price NUMERIC, stock INT)",
+        "CREATE TABLE invoices (id INT, customer_id TEXT, subtotal NUMERIC, igv NUMERIC, total NUMERIC, origin TEXT, order_ref TEXT, store_id TEXT, created_at TIMESTAMP)",
         "CREATE TABLE invoice_items (id INT, invoice_id INT, sku TEXT, qty INT, unit_price NUMERIC)",
-        "INSERT INTO products VALUES ('ZAP-1','Zapatilla',100.00,3),('POL-1','Polo',40.00,50)",
+        "INSERT INTO products VALUES ('LAP-1','Laptop','Laptops',100.00,3),('AUD-1','Audífonos','Audio',40.00,50)",
         # factura web 1 (03:00 UTC = 22:00 del día anterior en Lima) y factura de tienda 2
-        "INSERT INTO invoices VALUES (1,'cli-1',200,36,236,'ecommerce','ped-1','2026-11-21 03:00:00'),"
-        "(2,'CONSUMIDOR_FINAL',80,14.4,94.4,'pos','ven-1','2026-11-21 15:00:00')",
-        "INSERT INTO invoice_items VALUES (1,1,'ZAP-1',2,100.00),(2,2,'POL-1',2,40.00)")
+        "INSERT INTO invoices VALUES (1,'cli-1',200,36,236,'ecommerce','ped-1',NULL,'2026-11-21 03:00:00'),"
+        "(2,'CONSUMIDOR_FINAL',80,14.4,94.4,'pos','ven-1','LIM-02','2026-11-21 15:00:00')",
+        "INSERT INTO invoice_items VALUES (1,1,'LAP-1',2,100.00),(2,2,'AUD-1',2,40.00)")
     sql("crm", "CREATE TABLE customers (customer_id TEXT, doc_type TEXT, doc_number TEXT, full_name TEXT, email TEXT, created_at TIMESTAMP)",
         "INSERT INTO customers VALUES ('cli-1','DNI','45678912','María Quispe','maria@example.com','2026-11-20 10:00:00')")
     sql("ecom", "CREATE TABLE orders (id TEXT, customer_id TEXT, status TEXT, invoice_id INT, created_at TIMESTAMP)",
@@ -46,15 +46,21 @@ def test_kpis_values():
     k = client.get("/api/kpis").json()
     assert k["ventas_total"] == 330.4 and k["facturas"] == 2 and k["clientes"] == 1 and k["ticket_promedio"] == 165.2
     canales = {c["canal"]: c["total"] for c in k["por_canal"]}
-    assert canales["Tienda online"] == 236.0 and canales["Tienda física (POS)"] == 94.4
+    assert canales["Tienda online"] == 236.0 and canales["Tiendas físicas"] == 94.4
+    tiendas = {t["tienda"]: t["total"] for t in k["por_tienda"]}
+    assert tiendas["San Miguel"] == 94.4 and tiendas["Miraflores"] == 0
+    cats = {c["categoria"]: c["total"] for c in k["por_categoria"]}
+    assert cats == {"Laptops": 236.0, "Audio": 94.4} and len(k["por_dia"]) == 30
     assert k["pedidos_web"]["tasa_rechazo"] == 50.0 and k["pos_en_cola"] == 1
-    assert [s for s in k["stock"] if s["sku"] == "ZAP-1"][0]["bajo"] is True
+    assert [s for s in k["stock"] if s["sku"] == "LAP-1"][0]["bajo"] is True
     assert k["ultima_carga"]["estado"] == "OK"
 
 
 def test_peru_timezone_date_key():
-    k = client.get("/api/kpis").json()
-    assert {d["fecha"] for d in k["por_dia"]} == {"2026-11-20", "2026-11-21"}  # 03:00 UTC cae el 20 en Lima
+    from datetime import date
+    rows = etl.transform(etl.extract())["fact_sales"]
+    keys = {r["invoice_id"]: r["date_key"] for r in rows}
+    assert keys == {1: 20261120, 2: 20261121}  # 03:00 UTC cae el 20 en Lima
 
 
 def test_no_personal_data_in_dw():
@@ -79,4 +85,4 @@ def test_failure_is_logged_not_crash():
 
 
 def test_dashboard_page():
-    assert "Panel gerencial" in client.get("/").text
+    assert "RetailNova Analytics" in client.get("/").text
