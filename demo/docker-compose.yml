@@ -67,6 +67,28 @@ services:
     depends_on: [keycloak-db]
     networks: [retailnova]
 
+  crm:
+    build: ./crm
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: "postgresql+psycopg://crm:${CRM_DB_PASSWORD}@crm-db:5432/crm"
+    depends_on:
+      crm-db: { condition: service_healthy }
+    ports: ["8001:8000"]
+    networks: [retailnova]
+
+  erp:
+    build: ./erp
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: "postgresql+psycopg://erp:${ERP_DB_PASSWORD}@erp-db:5432/erp"
+      CRM_URL: "http://crm:8000"
+    depends_on:
+      erp-db: { condition: service_healthy }
+      crm: { condition: service_started }
+    ports: ["8002:8000"]
+    networks: [retailnova]
+
 networks:
   retailnova:
 
