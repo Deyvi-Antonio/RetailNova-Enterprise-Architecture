@@ -17,12 +17,14 @@ button{padding:8px 16px;border:0;border-radius:6px;background:var(--azul);color:
 .bar.alt{background:#4a7bd0}.bar.warn{background:#d9822b}
 .tag{font-size:12px;padding:2px 8px;border-radius:10px;background:#fde0e0;color:#a11}
 .note{font-size:12px;color:var(--muted);margin-top:14px}
-</style></head><body>
+.deny{background:#fde0e0;color:#8a1010;padding:10px 14px;border-radius:8px;margin-top:12px}.info{background:#eef3fb;padding:10px 14px;border-radius:8px;margin-top:12px}
+#session button{margin-left:6px}
+</style><script src="/static/auth.js"></script></head><body>
 <div class="top">
   <div><h1>RetailNova · Panel gerencial</h1>
   <small>Datos del Data Warehouse, cargados por el ETL desde las bases del ERP, CRM, e-commerce y POS.</small></div>
-  <div><small id="last"></small> <button onclick="runEtl()">Actualizar datos (ETL)</button></div>
-</div>
+  <div><div id="session" style="text-align:right;margin-bottom:6px"></div><small id="last"></small> <button onclick="runEtl()">Actualizar datos (ETL)</button></div>
+</div><div id="gate"></div>
 <div class="cards">
   <div class="card"><span>Ventas totales (con IGV)</span><b id="k1">–</b></div>
   <div class="card"><span>Facturas</span><b id="k2">–</b></div>
@@ -46,7 +48,9 @@ function bars(el,items,label,val,fmt,cls){const max=Math.max(1,...items.map(val)
   $(el).innerHTML=items.length?items.map(i=>`<div class="row"><span>${esc(label(i))}</span>
   <div class="bar ${cls?cls(i):''}" style="width:${100*val(i)/max}%"></div><span>${esc(fmt(i))}</span></div>`).join('')
   :'<small>Sin datos todavía. Haz una compra y pulsa “Actualizar datos”.</small>';}
-async function load(){const k=await (await fetch('/api/kpis')).json();
+async function load(){const r=await Auth.api('/api/kpis');
+  $('gate').innerHTML=r.ok?'':(r.status===401?'<div class="info">Inicia sesión con un usuario de Gerencia para ver los indicadores.</div>':`<div class="deny">⛔ ${esc(r.data?.detail||'Sin permiso')}</div>`);
+  if(!r.ok)return;const k=r.data;
   $('k1').textContent=sol(k.ventas_total);$('k2').textContent=k.facturas;$('k3').textContent=sol(k.ticket_promedio);
   $('k4').textContent=k.clientes;$('k5').textContent=k.pedidos_web.tasa_rechazo+' %';$('k6').textContent=k.pos_en_cola;
   bars('canal',k.por_canal,i=>i.canal,i=>i.total,i=>sol(i.total));
@@ -54,6 +58,6 @@ async function load(){const k=await (await fetch('/api/kpis')).json();
   bars('dia',k.por_dia,i=>i.fecha,i=>i.total,i=>sol(i.total));
   bars('stock',k.stock,i=>i.producto+(i.bajo?' ⚠':''),i=>i.stock,i=>i.stock+' u.',i=>i.bajo?'warn':'alt');
   const u=k.ultima_carga;$('last').textContent=u?`Última carga: ${new Date(u.fecha).toLocaleTimeString('es-PE')} (${u.estado})`:'Sin cargas aún';}
-async function runEtl(){await fetch('/api/run',{method:'POST'});load();}
-load();setInterval(load,10000);
+async function runEtl(){await Auth.api('/api/run',{method:'POST'});load();}
+(async()=>{await Auth.handleCallback();Auth.bar('session');load();setInterval(load,10000);})();
 </script></body></html>

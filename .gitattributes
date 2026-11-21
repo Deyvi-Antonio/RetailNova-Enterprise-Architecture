@@ -1,2 +1,4 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+# Los scripts que corren dentro de contenedores Linux deben tener fin de línea LF
+*.sh text eol=lf

@@ -4,9 +4,10 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 import threading
 import time
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, Response
 from fastapi.responses import HTMLResponse
 from . import etl, kpis
+from .auth import require
 
 logging.basicConfig(level=logging.INFO)
 INTERVAL = int(os.getenv("ETL_INTERVAL_SECONDS", "0"))  # 0 = solo manual
@@ -31,12 +32,17 @@ async def lifespan(app):
         threading.Thread(target=_loop, daemon=True, name="etl-loop").start()
     yield
 
-app = FastAPI(title="RetailNova ETL y panel gerencial", version="0.3.0", lifespan=lifespan)
+app = FastAPI(title="RetailNova ETL y panel gerencial", version="0.4.0", lifespan=lifespan)
 
 
 @app.get("/", response_class=HTMLResponse)
 def dashboard():
     return (Path(__file__).parent / "dashboard.html").read_text(encoding="utf-8")
+
+
+@app.get("/static/auth.js")
+def auth_js():
+    return Response((Path(__file__).parent / "web_auth.js").read_text(encoding="utf-8"), media_type="application/javascript")
 
 
 @app.get("/health")
@@ -45,11 +51,11 @@ def health():
 
 
 @app.post("/api/run")
-def run_now():
+def run_now(_u=Depends(require("gerente"))):
     return run_once()
 
 
 @app.get("/api/kpis")
-def get_kpis():
+def get_kpis(_u=Depends(require("gerente"))):
     etl.md.create_all(etl.engines()["dw"])
     return kpis.compute()

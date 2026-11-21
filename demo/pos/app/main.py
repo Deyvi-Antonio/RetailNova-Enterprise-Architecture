@@ -2,12 +2,13 @@ import json
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Response
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from . import bus, network, outbox
+from . import auth, bus, network, outbox
+from .auth import require, User
 from .db import Base, engine, get_db
 from .models import Sale
 
@@ -22,7 +23,7 @@ async def lifespan(app):
         bus.start_loop(outbox.flush, 3, "pos-outbox")
     yield
 
-app = FastAPI(title="RetailNova POS (tienda)", version="0.2.0", lifespan=lifespan)
+app = FastAPI(title="RetailNova POS (tienda)", version="0.4.0", lifespan=lifespan)
 
 
 class ItemIn(BaseModel):
@@ -51,6 +52,11 @@ def pos_page():
     return (Path(__file__).parent / "pos.html").read_text(encoding="utf-8")
 
 
+@app.get("/static/auth.js")
+def auth_js():
+    return Response((Path(__file__).parent / "web_auth.js").read_text(encoding="utf-8"), media_type="application/javascript")
+
+
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "pos", "online": network.online}
@@ -67,7 +73,7 @@ def get_network():
 
 
 @app.post("/network")
-def set_network(data: NetworkIn):
+def set_network(data: NetworkIn, _u=Depends(require("cajero"))):
     """Simula la caída o el regreso de la red de la tienda."""
     network.online = data.online
     sent = outbox.flush() if (data.online and bus.URL) else 0
@@ -75,7 +81,7 @@ def set_network(data: NetworkIn):
 
 
 @app.post("/sales", status_code=201)
-def create_sale(data: SaleIn, db: Session = Depends(get_db)):
+def create_sale(data: SaleIn, db: Session = Depends(get_db), user: User = Depends(require("cajero"))):
     s = Sale(items_json=json.dumps([i.model_dump() for i in data.items]),
              customer_id=data.customer_id, store_id=data.store_id)
     db.add(s)
@@ -88,12 +94,12 @@ def create_sale(data: SaleIn, db: Session = Depends(get_db)):
 
 
 @app.get("/sales")
-def list_sales(limit: int = 20, db: Session = Depends(get_db)):
+def list_sales(limit: int = 20, db: Session = Depends(get_db), _u=Depends(require("cajero", "gerente"))):
     return [out(s) for s in db.scalars(select(Sale).order_by(Sale.created_at.desc()).limit(min(limit, 100)))]
 
 
 @app.get("/sales/{sale_id}")
-def get_sale(sale_id: str, db: Session = Depends(get_db)):
+def get_sale(sale_id: str, db: Session = Depends(get_db), _u=Depends(require("cajero", "gerente"))):
     s = db.get(Sale, sale_id)
     if not s:
         raise HTTPException(404, "Venta no encontrada")

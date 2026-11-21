@@ -1,0 +1,64 @@
+{
+  "realm": "retailnova",
+  "displayName": "RetailNova",
+  "enabled": true,
+  "sslRequired": "external",
+  "accessTokenLifespan": 1800,
+  "ssoSessionIdleTimeout": 3600,
+  "bruteForceProtected": true,
+  "failureFactor": 5,
+  "permanentLockout": false,
+  "passwordPolicy": "length(8)",
+  "internationalizationEnabled": true,
+  "supportedLocales": ["es", "en"],
+  "defaultLocale": "es",
+  "roles": {
+    "realm": [
+      { "name": "admin", "description": "Administrador: acceso total y registro de auditoría" },
+      { "name": "gerente", "description": "Gerencia: panel de indicadores y facturas" },
+      { "name": "cajero", "description": "Caja de tienda: registrar ventas" },
+      { "name": "atencion_cliente", "description": "Atención al cliente: datos personales de clientes" },
+      { "name": "integracion", "description": "Cuenta de servicio para la comunicación entre sistemas" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "retailnova-web",
+      "name": "RetailNova - páginas internas",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": ["http://localhost:8001/*", "http://localhost:8004/*", "http://localhost:8005/*"],
+      "webOrigins": ["+"],
+      "attributes": { "pkce.code.challenge.method": "S256", "post.logout.redirect.uris": "+" }
+    },
+    {
+      "clientId": "retailnova-servicios",
+      "name": "RetailNova - comunicación entre sistemas",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${SERVICE_CLIENT_SECRET}",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false
+    }
+  ],
+  "users": [
+    { "username": "ana.admin", "enabled": true, "firstName": "Ana", "lastName": "Administradora",
+      "email": "ana.admin@retailnova.demo", "emailVerified": true, "realmRoles": ["admin"],
+      "credentials": [{ "type": "password", "value": "${DEMO_USERS_PASSWORD}", "temporary": false }] },
+    { "username": "gabriel.gerente", "enabled": true, "firstName": "Gabriel", "lastName": "Gerente",
+      "email": "gabriel.gerente@retailnova.demo", "emailVerified": true, "realmRoles": ["gerente"],
+      "credentials": [{ "type": "password", "value": "${DEMO_USERS_PASSWORD}", "temporary": false }] },
+    { "username": "carla.cajera", "enabled": true, "firstName": "Carla", "lastName": "Cajera",
+      "email": "carla.cajera@retailnova.demo", "emailVerified": true, "realmRoles": ["cajero"],
+      "credentials": [{ "type": "password", "value": "${DEMO_USERS_PASSWORD}", "temporary": false }] },
+    { "username": "sofia.atencion", "enabled": true, "firstName": "Sofía", "lastName": "Atención",
+      "email": "sofia.atencion@retailnova.demo", "emailVerified": true, "realmRoles": ["atencion_cliente"],
+      "credentials": [{ "type": "password", "value": "${DEMO_USERS_PASSWORD}", "temporary": false }] },
+    { "username": "service-account-retailnova-servicios", "enabled": true,
+      "serviceAccountClientId": "retailnova-servicios", "realmRoles": ["integracion"] }
+  ]
+}

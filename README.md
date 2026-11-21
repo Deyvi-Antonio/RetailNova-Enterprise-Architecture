@@ -62,3 +62,27 @@ Probar (con los contenedores arriba): `python scripts/demo_eventos.py` → debe 
 - El botón "Actualizar datos (ETL)" fuerza una carga inmediata.
 
 ![Panel gerencial](docs/panel-gerencial.png)
+
+## Sprint 4: seguridad (Keycloak, roles, auditoría, Ley N.º 29733)
+**Usuarios de prueba** (contraseña = `DEMO_USERS_PASSWORD` de tu `.env`):
+
+| Usuario | Rol | Puede |
+|---|---|---|
+| `ana.admin` | admin | Todo, incluido el registro de auditoría |
+| `gabriel.gerente` | gerente | Panel gerencial (:8005) y facturas del ERP |
+| `carla.cajera` | cajero | Caja de tienda (:8004) |
+| `sofia.atencion` | atencion_cliente | Datos personales de clientes en el CRM (:8001) |
+
+La tienda online (:8003) sigue siendo pública, como para cualquier cliente.
+
+Qué se implementó:
+- **Aplicación:** inicio de sesión en la pantalla oficial de Keycloak (OpenID Connect con PKCE; la página nunca ve la contraseña), tokens firmados que cada sistema valida, roles por endpoint, sesión única (SSO) entre páginas y bloqueo tras 5 intentos fallidos.
+- **Entre sistemas:** cada llamada usa una cuenta de servicio (`retailnova-servicios`, rol `integracion`), no un acceso abierto.
+- **Datos:** el CRM registra cada acceso a datos personales, permitido o denegado (quién, cuándo, qué, desde qué IP); solo el admin lo ve. El ETL lee las bases con un usuario de **solo lectura** (`etl_reader`). El DW no guarda datos personales.
+- **Infraestructura:** secretos solo en `.env` (fuera de Git); cada base en su propio contenedor; Keycloak con verificación de salud.
+
+Probar: `python scripts/demo_seguridad.py` → `RESULTADO: OK`. Si tienes dudas con tu `.env`: `python scripts/verificar_env.py`.
+
+> Al actualizar desde el Sprint 3: agrega a tu `.env` las 3 variables nuevas de `.env.example` (`SERVICE_CLIENT_SECRET`, `DEMO_USERS_PASSWORD`, `ETL_READER_PASSWORD`) y ejecuta `docker compose down -v` y `docker compose up -d --build`.
+
+![CRM con auditoría](docs/crm-auditoria.png)
