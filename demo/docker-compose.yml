@@ -1,0 +1,79 @@
+# RetailNova - demo local. Cada sistema tiene su PROPIA base de datos.
+name: retailnova
+
+x-postgres: &pg
+  image: postgres:16-alpine
+  restart: unless-stopped
+  networks: [retailnova]
+
+services:
+  erp-db:
+    <<: *pg
+    environment: { POSTGRES_DB: erp, POSTGRES_USER: erp, POSTGRES_PASSWORD: "${ERP_DB_PASSWORD:?define ERP_DB_PASSWORD}" }
+    volumes: [erp_data:/var/lib/postgresql/data]
+    healthcheck: { test: ["CMD-SHELL","pg_isready -U erp -d erp"], interval: 5s, retries: 10 }
+
+  crm-db:
+    <<: *pg
+    environment: { POSTGRES_DB: crm, POSTGRES_USER: crm, POSTGRES_PASSWORD: "${CRM_DB_PASSWORD:?define CRM_DB_PASSWORD}" }
+    volumes: [crm_data:/var/lib/postgresql/data]
+    healthcheck: { test: ["CMD-SHELL","pg_isready -U crm -d crm"], interval: 5s, retries: 10 }
+
+  ecommerce-db:
+    <<: *pg
+    environment: { POSTGRES_DB: ecommerce, POSTGRES_USER: ecom, POSTGRES_PASSWORD: "${ECOM_DB_PASSWORD:?define ECOM_DB_PASSWORD}" }
+    volumes: [ecom_data:/var/lib/postgresql/data]
+    healthcheck: { test: ["CMD-SHELL","pg_isready -U ecom -d ecommerce"], interval: 5s, retries: 10 }
+
+  pos-db:
+    <<: *pg
+    environment: { POSTGRES_DB: pos, POSTGRES_USER: pos, POSTGRES_PASSWORD: "${POS_DB_PASSWORD:?define POS_DB_PASSWORD}" }
+    volumes: [pos_data:/var/lib/postgresql/data]
+    healthcheck: { test: ["CMD-SHELL","pg_isready -U pos -d pos"], interval: 5s, retries: 10 }
+
+  dw-db:
+    <<: *pg
+    environment: { POSTGRES_DB: dw, POSTGRES_USER: dw, POSTGRES_PASSWORD: "${DW_DB_PASSWORD:?define DW_DB_PASSWORD}" }
+    volumes: [dw_data:/var/lib/postgresql/data]
+    healthcheck: { test: ["CMD-SHELL","pg_isready -U dw -d dw"], interval: 5s, retries: 10 }
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: "${RABBITMQ_USER:?define RABBITMQ_USER}"
+      RABBITMQ_DEFAULT_PASS: "${RABBITMQ_PASSWORD:?define RABBITMQ_PASSWORD}"
+    ports: ["15672:15672"]   # panel de administración (solo local)
+    networks: [retailnova]
+    healthcheck: { test: ["CMD","rabbitmq-diagnostics","-q","ping"], interval: 10s, retries: 10 }
+
+  keycloak-db:
+    <<: *pg
+    environment: { POSTGRES_DB: keycloak, POSTGRES_USER: keycloak, POSTGRES_PASSWORD: "${KEYCLOAK_DB_PASSWORD:?define KEYCLOAK_DB_PASSWORD}" }
+    volumes: [kc_data:/var/lib/postgresql/data]
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    command: start-dev
+    restart: unless-stopped
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: "${KEYCLOAK_DB_PASSWORD}"
+      KEYCLOAK_ADMIN: "${KEYCLOAK_ADMIN:?define KEYCLOAK_ADMIN}"
+      KEYCLOAK_ADMIN_PASSWORD: "${KEYCLOAK_ADMIN_PASSWORD:?define KEYCLOAK_ADMIN_PASSWORD}"
+    ports: ["8080:8080"]
+    depends_on: [keycloak-db]
+    networks: [retailnova]
+
+networks:
+  retailnova:
+
+volumes:
+  erp_data:
+  crm_data:
+  ecom_data:
+  pos_data:
+  dw_data:
+  kc_data:
