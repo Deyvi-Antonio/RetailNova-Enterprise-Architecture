@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RetailNova · Caja de tienda</title>
+<style>
+body{font-family:system-ui,Segoe UI,sans-serif;max-width:1000px;margin:24px auto;padding:0 16px;color:#1d2433}
+h1{margin:0 0 4px;color:#1f3864}small{color:#667}h3{margin-top:24px}
+table{width:100%;border-collapse:collapse;margin:8px 0}th,td{padding:6px 8px;border-bottom:1px solid #e3e6ec;text-align:left;font-size:14px}
+input{padding:6px;border:1px solid #c8cdd6;border-radius:6px}button{padding:8px 16px;border:0;border-radius:6px;background:#1f3864;color:#fff;cursor:pointer;font-size:14px}
+#net{font-weight:700;padding:10px 14px;border-radius:8px;display:flex;justify-content:space-between;align-items:center;margin-top:12px}
+.on{background:#d4f5dd}.off{background:#fde0e0}#msg{margin:8px 0;color:#b00020}
+.b{padding:2px 8px;border-radius:10px;font-size:12px;font-weight:600}
+.EN_COLA{background:#fff3cd}.ENVIADO{background:#dbe7ff}.FACTURADO{background:#d4f5dd}.RECHAZADO{background:#fde0e0}
+</style></head><body>
+<h1>RetailNova · Caja de tienda (POS)</h1>
+<small>Base de datos local de la tienda. Si se cae la red, las ventas se guardan en cola y se envían al ERP cuando vuelve.</small>
+<div id="net"><span id="netTxt"></span><button id="netBtn" onclick="toggle()"></button></div>
+<h3>Productos <small id="catState"></small></h3><table id="cat"></table>
+<p><button onclick="sell()">Registrar venta</button></p><div id="msg"></div>
+<h3>Ventas de la tienda</h3><table id="sales"></table>
+<script>
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const $=id=>document.getElementById(id);let online=true;
+async function loadNet(){online=(await (await fetch('/network')).json()).online;
+  $('net').className=online?'on':'off';
+  $('netTxt').textContent=online?'🟢 Red conectada con la sede central':'🔴 Sin red: las ventas quedan en cola local';
+  $('netBtn').textContent=online?'Simular caída de red':'Restablecer red';}
+async function toggle(){await fetch('/network',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({online:!online})});
+  await loadNet();loadSales();setTimeout(loadCat,2500);}
+async function loadCat(){const j=await (await fetch('/catalog')).json();
+  $('catState').textContent=j.online?'(catálogo del ERP)':'(copia local del catálogo)';
+  $('cat').innerHTML='<tr><th>SKU</th><th>Producto</th><th>Precio sin IGV</th><th>Stock central</th><th>Cantidad</th></tr>'+
+    j.products.map(p=>`<tr><td>${esc(p.sku)}</td><td>${esc(p.name)}</td><td>S/ ${esc(p.price)}</td><td>${esc(p.stock)}</td>
+    <td><input type="number" min="0" value="0" data-sku="${esc(p.sku)}" style="width:70px"></td></tr>`).join('');}
+async function loadSales(){const ss=await (await fetch('/sales')).json();
+  $('sales').innerHTML='<tr><th>Venta</th><th>Ítems</th><th>Estado</th><th>Factura ERP</th><th>Total</th><th>Detalle</th></tr>'+
+    ss.map(s=>`<tr><td>${esc(s.id.slice(0,8))}</td><td>${esc(s.items.map(i=>i.qty+'× '+i.sku).join(', '))}</td>
+    <td><span class="b ${esc(s.status)}">${esc(s.status)}</span></td><td>${esc(s.invoice_id??'—')}</td>
+    <td>${s.total?'S/ '+esc(s.total):'—'}</td><td>${esc(s.reason??'')}</td></tr>`).join('');}
+async function sell(){const items=[...document.querySelectorAll('#cat input')].map(i=>({sku:i.dataset.sku,qty:+i.value})).filter(i=>i.qty>0);
+  $('msg').textContent='';if(!items.length){$('msg').textContent='Elige al menos un producto.';return}
+  const r=await fetch('/sales',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({items})});
+  if(!r.ok){$('msg').textContent='Error al registrar';return}
+  document.querySelectorAll('#cat input').forEach(i=>i.value=0);loadSales();}
+loadNet();loadCat();loadSales();setInterval(loadSales,2000);
+</script></body></html>
