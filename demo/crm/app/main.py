@@ -3,6 +3,7 @@ from datetime import datetime
 from pathlib import Path
 from fastapi import FastAPI, Depends, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -12,6 +13,7 @@ from .db import Base, engine, get_db, SessionLocal
 from .models import Customer, AuditLog
 
 app = FastAPI(title="RetailNova CRM", version="0.4.0")
+app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
 Base.metadata.create_all(engine)
 
 
@@ -50,11 +52,6 @@ class CustomerOut(BaseModel):
 @app.get("/", response_class=HTMLResponse)
 def console_page():
     return (Path(__file__).parent / "console.html").read_text(encoding="utf-8")
-
-
-@app.get("/static/auth.js")
-def auth_js():
-    return Response((Path(__file__).parent / "web_auth.js").read_text(encoding="utf-8"), media_type="application/javascript")
 
 
 @app.get("/health")

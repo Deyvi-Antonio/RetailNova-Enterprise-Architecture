@@ -20,7 +20,8 @@ def handle(routing_key: str, event: dict) -> None:
             log.info("Evento duplicado ignorado: %s", event["event_id"])
             return
         try:
-            inv = create_invoice(db, data["customer_id"], data["items"], origin=origin, order_ref=data["order_ref"])
+            inv = create_invoice(db, data["customer_id"], data["items"], origin=origin, order_ref=data["order_ref"],
+                                 store_id=data.get("store_id"))
             payload = {"order_ref": data["order_ref"], "invoice_id": inv.id, "total": str(inv.total)}
             db.add(ProcessedEvent(event_id=event["event_id"]))
             db.commit()

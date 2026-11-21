@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from fastapi import FastAPI, Depends, HTTPException, Response
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -24,6 +25,7 @@ async def lifespan(app):
     yield
 
 app = FastAPI(title="RetailNova POS (tienda)", version="0.4.0", lifespan=lifespan)
+app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
 
 
 class ItemIn(BaseModel):
@@ -50,11 +52,6 @@ def out(s: Sale) -> dict:
 @app.get("/", response_class=HTMLResponse)
 def pos_page():
     return (Path(__file__).parent / "pos.html").read_text(encoding="utf-8")
-
-
-@app.get("/static/auth.js")
-def auth_js():
-    return Response((Path(__file__).parent / "web_auth.js").read_text(encoding="utf-8"), media_type="application/javascript")
 
 
 @app.get("/health")

@@ -1,63 +1,67 @@
 <!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>RetailNova · Panel gerencial</title>
+<title>RetailNova · Analytics</title><link rel="stylesheet" href="/static/ui.css">
+<script src="/static/ui.js"></script><script src="/static/auth.js"></script>
 <style>
-:root{--azul:#1f3864;--txt:#1d2433;--muted:#667085;--borde:#e3e6ec}
-body{font-family:system-ui,Segoe UI,sans-serif;max-width:1100px;margin:24px auto;padding:0 16px;color:var(--txt);background:#f7f8fa}
-h1{margin:0;color:var(--azul)}small{color:var(--muted)}
-.top{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
-button{padding:8px 16px;border:0;border-radius:6px;background:var(--azul);color:#fff;cursor:pointer}
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:18px 0}
-.card,.box{background:#fff;border:1px solid var(--borde);border-radius:10px;padding:14px}
-.card b{display:block;font-size:24px;margin-top:4px}.card span{color:var(--muted);font-size:13px}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:800px){.grid{grid-template-columns:1fr}}
-.box h3{margin:0 0 10px;font-size:15px}
-.row{display:grid;grid-template-columns:150px 1fr 90px;align-items:center;gap:8px;margin:6px 0;font-size:13px}
-.bar{height:14px;background:var(--azul);border-radius:4px;min-width:2px}
-.bar.alt{background:#4a7bd0}.bar.warn{background:#d9822b}
-.tag{font-size:12px;padding:2px 8px;border-radius:10px;background:#fde0e0;color:#a11}
-.note{font-size:12px;color:var(--muted);margin-top:14px}
-.deny{background:#fde0e0;color:#8a1010;padding:10px 14px;border-radius:8px;margin-top:12px}.info{background:#eef3fb;padding:10px 14px;border-radius:8px;margin-top:12px}
-#session button{margin-left:6px}
-</style><script src="/static/auth.js"></script></head><body>
-<div class="top">
-  <div><h1>RetailNova · Panel gerencial</h1>
-  <small>Datos del Data Warehouse, cargados por el ETL desde las bases del ERP, CRM, e-commerce y POS.</small></div>
-  <div><div id="session" style="text-align:right;margin-bottom:6px"></div><small id="last"></small> <button onclick="runEtl()">Actualizar datos (ETL)</button></div>
-</div><div id="gate"></div>
-<div class="cards">
-  <div class="card"><span>Ventas totales (con IGV)</span><b id="k1">–</b></div>
-  <div class="card"><span>Facturas</span><b id="k2">–</b></div>
-  <div class="card"><span>Ticket promedio</span><b id="k3">–</b></div>
-  <div class="card"><span>Clientes que compraron</span><b id="k4">–</b></div>
-  <div class="card"><span>Pedidos web rechazados</span><b id="k5">–</b></div>
-  <div class="card"><span>Ventas de tienda en cola</span><b id="k6">–</b></div>
-</div>
-<div class="grid">
-  <div class="box"><h3>Ventas por canal</h3><div id="canal"></div></div>
-  <div class="box"><h3>Productos más vendidos (unidades)</h3><div id="top"></div></div>
-  <div class="box"><h3>Ventas por día</h3><div id="dia"></div></div>
-  <div class="box"><h3>Stock actual en el ERP</h3><div id="stock"></div></div>
-</div>
-<p class="note">Protección de datos (Ley N.º 29733): el Data Warehouse no guarda nombres, correos ni documentos de los clientes; solo su ID seudónimo del CRM.</p>
+.hero{background:linear-gradient(120deg,#1e1b4b 0%,#3730a3 55%,#6366f1 100%)}
+.legend{display:flex;gap:14px;font-size:12px;color:var(--muted)}.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px}
+.cols .c span{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);font-size:10px;background:#0f172a;color:#fff;padding:2px 6px;border-radius:4px;white-space:nowrap;display:none}
+.cols .c:hover span{display:block}
+.top5 td{font-size:13px}
+.kpis{grid-template-columns:repeat(6,minmax(0,1fr))}.kpi{padding:14px 12px;gap:10px}.kpi .ic{width:38px;height:38px;font-size:19px;flex:none}.kpi b{font-size:17px}
+@media(max-width:1200px){.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+</style></head><body>
+<div id="rn-nav"></div>
+<section class="hero"><div class="wrap"><div>
+  <h1>📊 RetailNova Analytics</h1><p>Indicadores para la gerencia, calculados desde el Data Warehouse que el ETL carga con los datos del ERP, CRM, tienda online y tiendas físicas.</p>
+  <div class="pills"><span id="last">Sin cargas aún</span><span>🔒 Sin datos personales (Ley N.º 29733)</span></div>
+</div><div style="display:flex;gap:10px;align-items:center"><button class="btn accent" onclick="runEtl()">🔄 Actualizar datos (ETL)</button><div id="session"></div></div></div></section>
+<main><div class="wrap">
+  <div id="gate"></div>
+  <div id="content">
+  <div class="kpis">
+    <div class="kpi"><div class="ic">💰</div><div><span>Ventas 60 días</span><b id="k1">–</b></div></div>
+    <div class="kpi"><div class="ic">📅</div><div><span>Ventas de hoy</span><b id="k2">–</b></div></div>
+    <div class="kpi"><div class="ic">🧾</div><div><span>Facturas</span><b id="k3">–</b></div></div>
+    <div class="kpi"><div class="ic">🎯</div><div><span>Ticket promedio</span><b id="k4">–</b></div></div>
+    <div class="kpi"><div class="ic">👥</div><div><span>Clientes compradores</span><b id="k5">–</b></div></div>
+    <div class="kpi"><div class="ic" style="background:#fee2e2">↩️</div><div><span>Web rechazados (sin stock)</span><b id="k6">–</b></div></div>
+  </div>
+  <div class="card"><h3 style="justify-content:space-between">📈 Ventas por día · últimos 30 días <span class="legend"><span><i style="background:#2563eb"></i>Lunes a viernes</span><span><i style="background:#f97316"></i>Fin de semana</span></span></h3>
+    <div class="cols" id="dia"></div><div class="axis" id="axis"></div></div>
+  <div class="grid g3" style="margin-top:16px">
+    <div class="card"><h3>🛒 Por canal</h3><div class="bars" id="canal"></div></div>
+    <div class="card"><h3>🏬 Por tienda física</h3><div class="bars" id="tienda"></div></div>
+    <div class="card"><h3>🏷️ Por categoría</h3><div class="bars" id="cat"></div></div>
+  </div>
+  <div class="grid g2" style="margin-top:16px">
+    <div class="card"><h3>🏆 Top 5 productos por ventas</h3><div id="top"></div></div>
+    <div class="card"><h3>⚠️ Stock crítico en el ERP</h3><div id="stock"></div></div>
+  </div>
+  </div>
+</div></main>
+<footer>Los indicadores no consultan las bases operativas: leen solo el Data Warehouse (modelo estrella). Datos sintéticos.</footer>
 <script>
-const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const $=id=>document.getElementById(id);
-const sol=v=>'S/ '+Number(v).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
+const $=id=>document.getElementById(id),E=RN.esc;
 function bars(el,items,label,val,fmt,cls){const max=Math.max(1,...items.map(val));
-  $(el).innerHTML=items.length?items.map(i=>`<div class="row"><span>${esc(label(i))}</span>
-  <div class="bar ${cls?cls(i):''}" style="width:${100*val(i)/max}%"></div><span>${esc(fmt(i))}</span></div>`).join('')
-  :'<small>Sin datos todavía. Haz una compra y pulsa “Actualizar datos”.</small>';}
+  $(el).innerHTML=items.length?items.map(i=>`<div class="row"><span>${label(i)}</span><div class="track"><div class="fill ${cls||''}" style="width:${100*val(i)/max}%"></div></div><span class="right">${fmt(i)}</span></div>`).join(''):'<div class="empty">Sin datos todavía.</div>';}
 async function load(){const r=await Auth.api('/api/kpis');
-  $('gate').innerHTML=r.ok?'':(r.status===401?'<div class="info">Inicia sesión con un usuario de Gerencia para ver los indicadores.</div>':`<div class="deny">⛔ ${esc(r.data?.detail||'Sin permiso')}</div>`);
-  if(!r.ok)return;const k=r.data;
-  $('k1').textContent=sol(k.ventas_total);$('k2').textContent=k.facturas;$('k3').textContent=sol(k.ticket_promedio);
-  $('k4').textContent=k.clientes;$('k5').textContent=k.pedidos_web.tasa_rechazo+' %';$('k6').textContent=k.pos_en_cola;
-  bars('canal',k.por_canal,i=>i.canal,i=>i.total,i=>sol(i.total));
-  bars('top',k.top_productos,i=>i.producto,i=>i.unidades,i=>i.unidades+' u.',()=> 'alt');
-  bars('dia',k.por_dia,i=>i.fecha,i=>i.total,i=>sol(i.total));
-  bars('stock',k.stock,i=>i.producto+(i.bajo?' ⚠':''),i=>i.stock,i=>i.stock+' u.',i=>i.bajo?'warn':'alt');
-  const u=k.ultima_carga;$('last').textContent=u?`Última carga: ${new Date(u.fecha).toLocaleTimeString('es-PE')} (${u.estado})`:'Sin cargas aún';}
+  $('content').style.display=RN.gate('gate',r,'Gerencia')?'':'none';if(!r.ok)return;const k=r.data;
+  $('k1').textContent=RN.sol(k.ventas_total);$('k2').textContent=RN.sol(k.ventas_hoy);$('k3').textContent=RN.num(k.facturas);
+  $('k4').textContent=RN.sol(k.ticket_promedio);$('k5').textContent=RN.num(k.clientes);$('k6').textContent=`${k.pedidos_web.por_estado.RECHAZADO||0} de ${k.pedidos_web.total}`;
+  const mx=Math.max(1,...k.por_dia.map(d=>d.total));
+  $('dia').innerHTML=k.por_dia.map(d=>`<div class="c ${d.fin_de_semana?'we':''}" style="height:${100*d.total/mx}%"><span>${E(d.fecha.slice(5))} · ${RN.sol(d.total)}</span></div>`).join('');
+  $('axis').innerHTML=`<span>${E(k.por_dia[0].fecha)}</span><span>${E(k.por_dia[14].fecha)}</span><span>Hoy</span>`;
+  bars('canal',k.por_canal.filter(c=>c.total>0),c=>RN.channel(c.code),c=>c.total,c=>RN.sol(c.total));
+  bars('tienda',k.por_tienda,t=>'🏬 '+E(t.tienda),t=>t.total,t=>RN.sol(t.total),'or');
+  bars('cat',k.por_categoria,c=>(RN.cat[c.categoria]||'')+' '+E(c.categoria),c=>c.total,c=>RN.sol(c.total),'tl');
+  $('top').innerHTML=`<table class="top5"><tr><th>#</th><th>Producto</th><th class="right">Unid.</th><th class="right">Ventas</th></tr>`+
+    k.top_productos.map((p,i)=>`<tr><td>${['🥇','🥈','🥉','4','5'][i]}</td><td>${RN.cat[p.categoria]||''} ${E(p.producto)}</td><td class="right">${p.unidades}</td><td class="right"><b>${RN.sol(p.total)}</b></td></tr>`).join('')+'</table>';
+  const crit=k.stock.filter(s=>s.bajo);
+  $('stock').innerHTML=crit.length?`<table><tr><th>Producto</th><th>SKU</th><th class="right">Stock</th><th>Estado</th></tr>`+
+    crit.map(s=>`<tr><td>${RN.cat[s.categoria]||''} ${E(s.producto)}</td><td class="mono">${E(s.sku)}</td><td class="right">${s.stock}</td><td>${RN.chip(RN.stockState(s.stock))}</td></tr>`).join('')+'</table>'
+    :'<div class="empty">✅ Ningún producto con stock bajo.</div>';
+  const u=k.ultima_carga;$('last').textContent=u?`🕒 Última carga del DW: ${new Date(u.fecha).toLocaleTimeString('es-PE')} (${u.estado})`:'Sin cargas aún';}
 async function runEtl(){await Auth.api('/api/run',{method:'POST'});load();}
-(async()=>{await Auth.handleCallback();Auth.bar('session');load();setInterval(load,10000);})();
+(async()=>{await Auth.handleCallback();RN.sessionBox('session');load();setInterval(load,10000);})();
 </script></body></html>

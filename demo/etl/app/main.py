@@ -6,6 +6,7 @@ import threading
 import time
 from fastapi import FastAPI, Depends, Response
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from . import etl, kpis
 from .auth import require
 
@@ -33,16 +34,12 @@ async def lifespan(app):
     yield
 
 app = FastAPI(title="RetailNova ETL y panel gerencial", version="0.4.0", lifespan=lifespan)
+app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
 
 
 @app.get("/", response_class=HTMLResponse)
 def dashboard():
     return (Path(__file__).parent / "dashboard.html").read_text(encoding="utf-8")
-
-
-@app.get("/static/auth.js")
-def auth_js():
-    return Response((Path(__file__).parent / "web_auth.js").read_text(encoding="utf-8"), media_type="application/javascript")
 
 
 @app.get("/health")

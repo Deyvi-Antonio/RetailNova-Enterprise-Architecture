@@ -4,6 +4,7 @@ import sys
 import time
 import httpx
 from _auth import headers
+from catalogo import asegurar_productos
 
 ERP, ECOM, POS = "http://localhost:8002", "http://localhost:8003", "http://localhost:8004"
 ADMIN, CAJERA = headers("ana.admin"), headers("carla.cajera")
@@ -19,28 +20,27 @@ def wait(url, ok_states, timeout=20, h=None):
 
 
 def stock():
-    return {p["sku"]: p["stock"] for p in httpx.get(f"{ERP}/products").json()}
+    return {p["sku"]: p["stock"] for p in httpx.get(f"{ERP}/products").json() if p["sku"] in ("AUD-0401", "ACC-0801")}
 
 
-for p in [("ZAP-1", "Zapatilla urbana", "129.90", 20), ("POL-1", "Polo básico", "39.90", 50)]:
-    httpx.post(f"{ERP}/products", json={"sku": p[0], "name": p[1], "price": p[2], "stock": p[3]}, headers=ADMIN)
+asegurar_productos(ERP, ADMIN)
 print("Stock inicial en el ERP:", stock())
 
 print("\n== Escena 2: compra en la tienda online -> evento -> ERP ==")
-o = httpx.post(f"{ECOM}/orders", json={"customer": {"doc_number": "45678912", "full_name": "María Quispe",
-               "email": "maria@example.com"}, "items": [{"sku": "ZAP-1", "qty": 1}]}).json()
+o = httpx.post(f"{ECOM}/orders", json={"customer": {"doc_number": "45678912", "full_name": "María Quispe Huamán",
+               "email": "maria.quispe@example.com"}, "items": [{"sku": "AUD-0401", "qty": 1}]}).json()
 print("Pedido creado:", o["id"][:8], "estado:", o["status"], "cliente CRM:", o["customer_id"][:8])
 o = wait(f"{ECOM}/orders/{o['id']}", {"CONFIRMADO", "RECHAZADO"})
 print("Respuesta del ERP:", o["status"], "factura", o["invoice_id"], "total S/", o["total"])
 
-bad = httpx.post(f"{ECOM}/orders", json={"customer": {"doc_number": "45678912", "full_name": "María Quispe",
-                 "email": "maria@example.com"}, "items": [{"sku": "ZAP-1", "qty": 9999}]}).json()
+bad = httpx.post(f"{ECOM}/orders", json={"customer": {"doc_number": "45678912", "full_name": "María Quispe Huamán",
+                 "email": "maria.quispe@example.com"}, "items": [{"sku": "AUD-0401", "qty": 9999}]}).json()
 bad = wait(f"{ECOM}/orders/{bad['id']}", {"CONFIRMADO", "RECHAZADO"})
 print("Pedido sin stock:", bad["status"], "-", bad["reason"])
 
 print("\n== Escena 3: tienda sin red -> cola local -> sincroniza al volver ==")
 httpx.post(f"{POS}/network", json={"online": False}, headers=CAJERA)
-s = httpx.post(f"{POS}/sales", json={"items": [{"sku": "POL-1", "qty": 2}]}, headers=CAJERA).json()
+s = httpx.post(f"{POS}/sales", json={"items": [{"sku": "ACC-0801", "qty": 2}], "store_id": "LIM-01"}, headers=CAJERA).json()
 print("Venta registrada sin red:", s["id"][:8], "estado:", s["status"])
 time.sleep(4)
 print("4 s después, sigue:", httpx.get(f"{POS}/sales/{s['id']}", headers=CAJERA).json()["status"], "(no se perdió, espera la red)")

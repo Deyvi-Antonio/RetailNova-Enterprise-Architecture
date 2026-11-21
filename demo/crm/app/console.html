@@ -1,30 +1,45 @@
 <!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>RetailNova · CRM</title>
+<title>RetailNova · CRM</title><link rel="stylesheet" href="/static/ui.css">
+<script src="/static/ui.js"></script><script src="/static/auth.js"></script>
 <style>
-body{font-family:system-ui,Segoe UI,sans-serif;max-width:1100px;margin:24px auto;padding:0 16px;color:#1d2433}
-h1{margin:0;color:#1f3864}small{color:#667}h3{margin-top:24px}
-.top{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
-table{width:100%;border-collapse:collapse;margin:8px 0}th,td{padding:6px 8px;border-bottom:1px solid #e3e6ec;text-align:left;font-size:13px}
-button{padding:7px 14px;border:0;border-radius:6px;background:#1f3864;color:#fff;cursor:pointer}
-.deny{background:#fde0e0;color:#8a1010;padding:10px 14px;border-radius:8px}.info{background:#eef3fb;padding:10px 14px;border-radius:8px}
-.PERMITIDO{color:#137333;font-weight:600}.DENEGADO{color:#b00020;font-weight:600}
-</style><script src="/static/auth.js"></script></head><body>
-<div class="top"><div><h1>RetailNova · CRM</h1><small>Datos personales de clientes. Acceso por rol y con registro de auditoría (Ley N.º 29733).</small></div>
-<div id="session"></div></div>
-<h3>Clientes</h3><div id="cust"></div>
-<h3>Registro de auditoría <small>(solo administrador)</small></h3><div id="audit"></div>
+.hero{background:linear-gradient(120deg,#134e4a 0%,#0f766e 55%,#14b8a6 100%)}
+.av{width:34px;height:34px;border-radius:50%;display:inline-grid;place-items:center;font-weight:700;color:#fff;margin-right:8px;font-size:13px}
+.who{display:flex;align-items:center}.search{max-width:320px}
+</style></head><body>
+<div id="rn-nav"></div>
+<section class="hero"><div class="wrap"><div>
+  <h1>👥 CRM · Clientes RetailNova</h1><p>Sistema oficial del cliente: un ID único por persona, sin importar el canal por el que compre.</p>
+  <div class="pills"><span>🔐 Acceso por rol</span><span>📝 Auditoría de accesos</span><span>⚖️ Ley N.º 29733</span></div>
+</div><div id="session"></div></div></section>
+<main><div class="wrap">
+  <div class="kpis"><div class="kpi"><div class="ic">👤</div><div><span>Clientes únicos</span><b id="k1">–</b></div></div>
+    <div class="kpi"><div class="ic">🪪</div><div><span>Con DNI</span><b id="k2">–</b></div></div>
+    <div class="kpi"><div class="ic">✅</div><div><span>Accesos permitidos</span><b id="k3">–</b></div></div>
+    <div class="kpi"><div class="ic" style="background:#fee2e2">⛔</div><div><span>Accesos denegados</span><b id="k4">–</b></div></div></div>
+  <div class="card"><h3 style="justify-content:space-between">Clientes <input class="search" id="q" placeholder="🔎 Buscar por nombre, DNI o correo" oninput="draw()"></h3><div id="cust"></div></div>
+  <div class="card" style="margin-top:16px"><h3>📝 Registro de auditoría <span class="small muted">(solo administrador · quién accedió a datos personales, cuándo y con qué resultado)</span></h3><div id="audit"></div></div>
+</div></main>
+<footer>RetailNova S.A. · Demo académica · Datos sintéticos</footer>
 <script>
-const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const $=id=>document.getElementById(id);
-const msg=(r)=>r.status===401?'<div class="info">Inicia sesión para ver esta sección.</div>':`<div class="deny">⛔ ${esc(r.data?.detail||'Sin permiso')}</div>`;
+const $=id=>document.getElementById(id),E=RN.esc;let rows=[];
+const colors=['#0f766e','#1d4ed8','#c2410c','#7c3aed','#be123c','#0369a1','#4d7c0f'];
+const av=n=>{const i=(n||'?').split(' ').map(x=>x[0]).slice(0,2).join('');return `<span class="av" style="background:${colors[(n||'').length%colors.length]}">${E(i)}</span>`};
+function draw(){const q=$('q').value.toLowerCase();const f=rows.filter(x=>(x.full_name+x.doc_number+x.email).toLowerCase().includes(q));
+  $('cust').innerHTML=`<table><tr><th>Cliente</th><th>Documento</th><th>Correo</th><th>Teléfono</th><th>ID único (CRM)</th><th>Registro</th></tr>`+
+   f.map(x=>`<tr><td><span class="who">${av(x.full_name)}${E(x.full_name)}</span></td><td>${E(x.doc_type)} ${E(x.doc_number)}</td><td>${E(x.email)}</td>
+   <td>${E(x.phone||'—')}</td><td class="mono">${E(x.customer_id.slice(0,8))}…</td><td>${E((x.created_at||'').slice(0,10))}</td></tr>`).join('')+'</table>';}
 async function load(){
-  const c=await Auth.api('/customers');
-  $('cust').innerHTML=c.ok?'<table><tr><th>ID único</th><th>Documento</th><th>Nombre</th><th>Correo</th><th>Registrado</th></tr>'+
-    c.data.map(x=>`<tr><td>${esc(x.customer_id.slice(0,8))}</td><td>${esc(x.doc_type)} ${esc(x.doc_number)}</td><td>${esc(x.full_name)}</td><td>${esc(x.email)}</td><td>${esc((x.created_at||'').slice(0,10))}</td></tr>`).join('')+'</table>':msg(c);
-  const a=await Auth.api('/audit');
-  $('audit').innerHTML=a.ok?'<table><tr><th>Fecha y hora</th><th>Usuario</th><th>Rol</th><th>Acción</th><th>Recurso</th><th>Resultado</th></tr>'+
-    a.data.map(x=>`<tr><td>${esc(new Date(x.at).toLocaleString('es-PE'))}</td><td>${esc(x.usuario)}</td><td>${esc(x.roles)}</td><td>${esc(x.accion)}</td><td>${esc(x.recurso)}</td><td class="${esc(x.resultado)}">${esc(x.resultado)}</td></tr>`).join('')+'</table>':msg(a);
+  const c=await Auth.api('/customers?limit=200');
+  if(c.ok){rows=c.data;$('k1').textContent=rows.length;$('k2').textContent=rows.filter(r=>r.doc_type==='DNI').length;draw();}
+  else $('cust').innerHTML=c.status===401?'<div class="notice info">🔐 Inicia sesión con Atención al cliente o Administración para ver los clientes.</div>':`<div class="notice deny">⛔ ${E(c.data?.detail)}</div>`;
+  const a=await Auth.api('/audit?limit=60');
+  if(a.ok){$('k3').textContent=a.data.filter(x=>x.resultado==='PERMITIDO').length;$('k4').textContent=a.data.filter(x=>x.resultado==='DENEGADO').length;
+    $('audit').innerHTML=`<table><tr><th>Fecha y hora</th><th>Usuario</th><th>Rol</th><th>Acción</th><th>Recurso</th><th>IP</th><th>Resultado</th></tr>`+
+    a.data.map(x=>`<tr><td>${E(new Date(x.at).toLocaleString('es-PE'))}</td><td>${E(x.usuario)}</td><td>${E(x.roles)}</td><td>${E(x.accion)}</td>
+    <td class="mono">${E((x.recurso||'').slice(0,18))}</td><td class="mono">${E(x.ip)}</td><td>${RN.chip(x.resultado)}</td></tr>`).join('')+'</table>';}
+  else {$('k3').textContent=$('k4').textContent='🔒';}
+  if(!a.ok) $('audit').innerHTML=a.status===401?'<div class="notice info">🔐 Inicia sesión para continuar.</div>':`<div class="notice deny">⛔ ${E(a.data?.detail)}</div>`;
 }
-(async()=>{await Auth.handleCallback();Auth.bar('session');load();})();
+(async()=>{await Auth.handleCallback();RN.sessionBox('session');load();})();
 </script></body></html>

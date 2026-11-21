@@ -8,6 +8,13 @@ IGV = Decimal("0.18")  # IGV Perú
 CONSUMIDOR_FINAL = "CONSUMIDOR_FINAL"  # venta en tienda sin cliente identificado
 
 
+def amounts(gross: Decimal) -> tuple[Decimal, Decimal, Decimal]:
+    """Como en una boleta peruana: el total parte del precio con IGV y de ahí se separa el IGV."""
+    total = (gross * (1 + IGV)).quantize(Decimal("0.01"))
+    subtotal = (total / (1 + IGV)).quantize(Decimal("0.01"))
+    return subtotal, total - subtotal, total
+
+
 class DomainError(Exception):
     def __init__(self, status: int, msg: str):
         super().__init__(msg)
@@ -15,7 +22,7 @@ class DomainError(Exception):
 
 
 def create_invoice(db: Session, customer_id: str, items: list[dict],
-                   origin: str = "api", order_ref: str | None = None) -> Invoice:
+                   origin: str = "api", order_ref: str | None = None, store_id: str | None = None) -> Invoice:
     """Valida el cliente en el CRM, descuenta stock y calcula IGV.
     No hace commit: el llamador confirma o revierte la transacción."""
     if customer_id != CONSUMIDOR_FINAL:
@@ -42,9 +49,9 @@ def create_invoice(db: Session, customer_id: str, items: list[dict],
         subtotal += prod.price * qty
         lines.append(InvoiceItem(sku=sku, qty=qty, unit_price=prod.price))
 
-    igv = (subtotal * IGV).quantize(Decimal("0.01"))
-    inv = Invoice(customer_id=customer_id, subtotal=subtotal, igv=igv, total=subtotal + igv,
-                  items=lines, origin=origin, order_ref=order_ref)
+    subtotal, igv, total = amounts(subtotal)
+    inv = Invoice(customer_id=customer_id, subtotal=subtotal, igv=igv, total=total,
+                  items=lines, origin=origin, order_ref=order_ref, store_id=store_id)
     db.add(inv)
     db.flush()
     return inv

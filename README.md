@@ -86,3 +86,15 @@ Probar: `python scripts/demo_seguridad.py` → `RESULTADO: OK`. Si tienes dudas 
 > Al actualizar desde el Sprint 3: agrega a tu `.env` las 3 variables nuevas de `.env.example` (`SERVICE_CLIENT_SECRET`, `DEMO_USERS_PASSWORD`, `ETL_READER_PASSWORD`) y ejecuta `docker compose down -v` y `docker compose up -d --build`.
 
 ![CRM con auditoría](docs/crm-auditoria.png)
+
+## Sprint 5: presentación y datos de RetailNova
+- **Datos alineados al caso:** RetailNova S.A. vende productos electrónicos en Lima por tiendas físicas y online. La demo trae 15 productos en 8 categorías, 3 tiendas (Miraflores, San Miguel y Los Olivos), 24 clientes y 60 días de ventas históricas. Todo es sintético porque el caso no detalla productos ni locales. Se carga con `python scripts/cargar_datos.py`.
+- **Precios como en Perú:** se exhiben con IGV y la factura separa el IGV a partir de ese precio, así que cuadra al céntimo.
+- **Nuevo diseño** en las 5 páginas, con barra de navegación común: tienda online con carrito, caja con ticket y selector de tienda, CRM con buscador, ERP **SAP 2** (inventario y facturas) y Analytics.
+- El nombre del ERP se cambia en un solo lugar: `ERP_BRAND` en `docker-compose.yml`.
+
+| Tienda online | Caja de tienda |
+|---|---|
+| ![](docs/tienda-online.png) | ![](docs/caja-tienda.png) |
+| **SAP 2 (ERP)** | **Analytics** |
+| ![](docs/erp-sap2.png) | ![](docs/panel-gerencial.png) |

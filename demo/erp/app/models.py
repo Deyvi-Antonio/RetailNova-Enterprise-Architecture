@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from decimal import Decimal
-from sqlalchemy import String, DateTime, Integer, Numeric, ForeignKey
+from sqlalchemy import String, DateTime, Integer, Numeric, ForeignKey, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .db import Base
 
@@ -13,7 +13,8 @@ class Product(Base):
     __tablename__ = "products"
     sku: Mapped[str] = mapped_column(String(40), primary_key=True)
     name: Mapped[str] = mapped_column(String(200))
-    price: Mapped[Decimal] = mapped_column(Numeric(12, 2))   # sin IGV
+    category: Mapped[str] = mapped_column(String(40), default="General")
+    price: Mapped[Decimal] = mapped_column(Numeric(12, 4))   # sin IGV (4 decimales: el precio de lista con IGV cuadra al céntimo)
     stock: Mapped[int] = mapped_column(Integer, default=0)
 
 
@@ -27,6 +28,8 @@ class Invoice(Base):
     total: Mapped[Decimal] = mapped_column(Numeric(12, 2))
     origin: Mapped[str] = mapped_column(String(20), default="api")              # api | ecommerce | pos
     order_ref: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)  # ID del pedido/venta de origen
+    store_id: Mapped[str | None] = mapped_column(String(20), nullable=True)   # tienda física (ventas POS)
+    migrated: Mapped[bool] = mapped_column(Boolean, default=False)           # carga histórica inicial
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     items: Mapped[list["InvoiceItem"]] = relationship(back_populates="invoice", cascade="all, delete-orphan")
 
@@ -37,7 +40,7 @@ class InvoiceItem(Base):
     invoice_id: Mapped[int] = mapped_column(ForeignKey("invoices.id"))
     sku: Mapped[str] = mapped_column(String(40))
     qty: Mapped[int] = mapped_column(Integer)
-    unit_price: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    unit_price: Mapped[Decimal] = mapped_column(Numeric(12, 4))
     invoice: Mapped[Invoice] = relationship(back_populates="items")
 
 
