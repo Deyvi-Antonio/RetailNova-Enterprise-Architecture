@@ -23,7 +23,7 @@ async def lifespan(app):
         bus.start_loop(outbox.flush, 3, "ecommerce-outbox")
     yield
 
-app = FastAPI(title="RetailNova E-commerce", version="0.2.0", lifespan=lifespan)
+app = FastAPI(title="RetailNova E-commerce", version="0.4.0", lifespan=lifespan)
 
 
 class CustomerIn(BaseModel):

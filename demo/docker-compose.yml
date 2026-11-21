@@ -9,26 +9,26 @@ x-postgres: &pg
 services:
   erp-db:
     <<: *pg
-    environment: { POSTGRES_DB: erp, POSTGRES_USER: erp, POSTGRES_PASSWORD: "${ERP_DB_PASSWORD:?define ERP_DB_PASSWORD}" }
-    volumes: [erp_data:/var/lib/postgresql/data]
+    environment: { POSTGRES_DB: erp, POSTGRES_USER: erp, ETL_READER_PASSWORD: "${ETL_READER_PASSWORD:?define ETL_READER_PASSWORD}", POSTGRES_PASSWORD: "${ERP_DB_PASSWORD:?define ERP_DB_PASSWORD}" }
+    volumes: [erp_data:/var/lib/postgresql/data, ./db-init/10-etl-reader.sh:/docker-entrypoint-initdb.d/10-etl-reader.sh:ro]
     healthcheck: { test: ["CMD-SHELL","pg_isready -U erp -d erp"], interval: 5s, retries: 10 }
 
   crm-db:
     <<: *pg
-    environment: { POSTGRES_DB: crm, POSTGRES_USER: crm, POSTGRES_PASSWORD: "${CRM_DB_PASSWORD:?define CRM_DB_PASSWORD}" }
-    volumes: [crm_data:/var/lib/postgresql/data]
+    environment: { POSTGRES_DB: crm, POSTGRES_USER: crm, ETL_READER_PASSWORD: "${ETL_READER_PASSWORD:?define ETL_READER_PASSWORD}", POSTGRES_PASSWORD: "${CRM_DB_PASSWORD:?define CRM_DB_PASSWORD}" }
+    volumes: [crm_data:/var/lib/postgresql/data, ./db-init/10-etl-reader.sh:/docker-entrypoint-initdb.d/10-etl-reader.sh:ro]
     healthcheck: { test: ["CMD-SHELL","pg_isready -U crm -d crm"], interval: 5s, retries: 10 }
 
   ecommerce-db:
     <<: *pg
-    environment: { POSTGRES_DB: ecommerce, POSTGRES_USER: ecom, POSTGRES_PASSWORD: "${ECOM_DB_PASSWORD:?define ECOM_DB_PASSWORD}" }
-    volumes: [ecom_data:/var/lib/postgresql/data]
+    environment: { POSTGRES_DB: ecommerce, POSTGRES_USER: ecom, ETL_READER_PASSWORD: "${ETL_READER_PASSWORD:?define ETL_READER_PASSWORD}", POSTGRES_PASSWORD: "${ECOM_DB_PASSWORD:?define ECOM_DB_PASSWORD}" }
+    volumes: [ecom_data:/var/lib/postgresql/data, ./db-init/10-etl-reader.sh:/docker-entrypoint-initdb.d/10-etl-reader.sh:ro]
     healthcheck: { test: ["CMD-SHELL","pg_isready -U ecom -d ecommerce"], interval: 5s, retries: 10 }
 
   pos-db:
     <<: *pg
-    environment: { POSTGRES_DB: pos, POSTGRES_USER: pos, POSTGRES_PASSWORD: "${POS_DB_PASSWORD:?define POS_DB_PASSWORD}" }
-    volumes: [pos_data:/var/lib/postgresql/data]
+    environment: { POSTGRES_DB: pos, POSTGRES_USER: pos, ETL_READER_PASSWORD: "${ETL_READER_PASSWORD:?define ETL_READER_PASSWORD}", POSTGRES_PASSWORD: "${POS_DB_PASSWORD:?define POS_DB_PASSWORD}" }
+    volumes: [pos_data:/var/lib/postgresql/data, ./db-init/10-etl-reader.sh:/docker-entrypoint-initdb.d/10-etl-reader.sh:ro]
     healthcheck: { test: ["CMD-SHELL","pg_isready -U pos -d pos"], interval: 5s, retries: 10 }
 
   dw-db:
@@ -56,7 +56,7 @@ services:
 
   keycloak:
     image: quay.io/keycloak/keycloak:26.0
-    command: start-dev
+    command: ["start-dev", "--import-realm"]
     restart: unless-stopped
     environment:
       KC_DB: postgres
@@ -65,6 +65,16 @@ services:
       KC_DB_PASSWORD: "${KEYCLOAK_DB_PASSWORD}"
       KC_BOOTSTRAP_ADMIN_USERNAME: "${KEYCLOAK_ADMIN:?define KEYCLOAK_ADMIN}"
       KC_BOOTSTRAP_ADMIN_PASSWORD: "${KEYCLOAK_ADMIN_PASSWORD:?define KEYCLOAK_ADMIN_PASSWORD}"
+      KC_HEALTH_ENABLED: "true"
+      # valores que usa el realm importado (keycloak/retailnova-realm.json)
+      SERVICE_CLIENT_SECRET: "${SERVICE_CLIENT_SECRET:?define SERVICE_CLIENT_SECRET}"
+      DEMO_USERS_PASSWORD: "${DEMO_USERS_PASSWORD:?define DEMO_USERS_PASSWORD}"
+    volumes: ["./keycloak/retailnova-realm.json:/opt/keycloak/data/import/retailnova-realm.json:ro"]
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q UP <&3"]
+      interval: 10s
+      retries: 30
+      start_period: 40s
     ports: ["8080:8080"]
     depends_on: [keycloak-db]
     networks: [retailnova]
@@ -74,6 +84,8 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: "postgresql+psycopg://crm:${CRM_DB_PASSWORD}@crm-db:5432/crm"
+      AUTH_ENABLED: "true"
+      KEYCLOAK_INTERNAL_URL: "http://keycloak:8080"
     depends_on:
       crm-db: { condition: service_healthy }
     ports: ["8001:8000"]
@@ -85,6 +97,9 @@ services:
     environment:
       DATABASE_URL: "postgresql+psycopg://erp:${ERP_DB_PASSWORD}@erp-db:5432/erp"
       CRM_URL: "http://crm:8000"
+      AUTH_ENABLED: "true"
+      KEYCLOAK_INTERNAL_URL: "http://keycloak:8080"
+      SERVICE_CLIENT_SECRET: "${SERVICE_CLIENT_SECRET}"
       RABBITMQ_URL: "amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/%2F"
     depends_on:
       erp-db: { condition: service_healthy }
@@ -100,6 +115,9 @@ services:
       DATABASE_URL: "postgresql+psycopg://ecom:${ECOM_DB_PASSWORD}@ecommerce-db:5432/ecommerce"
       CRM_URL: "http://crm:8000"
       ERP_URL: "http://erp:8000"
+      AUTH_ENABLED: "true"
+      KEYCLOAK_INTERNAL_URL: "http://keycloak:8080"
+      SERVICE_CLIENT_SECRET: "${SERVICE_CLIENT_SECRET}"
       RABBITMQ_URL: "amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/%2F"
     depends_on:
       ecommerce-db: { condition: service_healthy }
@@ -113,6 +131,8 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: "postgresql+psycopg://pos:${POS_DB_PASSWORD}@pos-db:5432/pos"
+      AUTH_ENABLED: "true"
+      KEYCLOAK_INTERNAL_URL: "http://keycloak:8080"
       ERP_URL: "http://erp:8000"
       RABBITMQ_URL: "amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/%2F"
     depends_on:
@@ -125,12 +145,14 @@ services:
     build: ./etl
     restart: unless-stopped
     environment:
-      ERP_DB_URL: "postgresql+psycopg://erp:${ERP_DB_PASSWORD}@erp-db:5432/erp"
-      CRM_DB_URL: "postgresql+psycopg://crm:${CRM_DB_PASSWORD}@crm-db:5432/crm"
-      ECOM_DB_URL: "postgresql+psycopg://ecom:${ECOM_DB_PASSWORD}@ecommerce-db:5432/ecommerce"
-      POS_DB_URL: "postgresql+psycopg://pos:${POS_DB_PASSWORD}@pos-db:5432/pos"
+      ERP_DB_URL: "postgresql+psycopg://etl_reader:${ETL_READER_PASSWORD}@erp-db:5432/erp"   # solo lectura
+      CRM_DB_URL: "postgresql+psycopg://etl_reader:${ETL_READER_PASSWORD}@crm-db:5432/crm"   # solo lectura
+      ECOM_DB_URL: "postgresql+psycopg://etl_reader:${ETL_READER_PASSWORD}@ecommerce-db:5432/ecommerce"   # solo lectura
+      POS_DB_URL: "postgresql+psycopg://etl_reader:${ETL_READER_PASSWORD}@pos-db:5432/pos"   # solo lectura
       DW_DB_URL: "postgresql+psycopg://dw:${DW_DB_PASSWORD}@dw-db:5432/dw"
       ETL_INTERVAL_SECONDS: "30"   # carga automática cada 30 s (demo)
+      AUTH_ENABLED: "true"
+      KEYCLOAK_INTERNAL_URL: "http://keycloak:8080"
     depends_on:
       dw-db: { condition: service_healthy }
       erp: { condition: service_started }

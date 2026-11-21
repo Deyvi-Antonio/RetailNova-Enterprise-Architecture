@@ -10,9 +10,11 @@ input{padding:6px;border:1px solid #c8cdd6;border-radius:6px}button{padding:8px 
 .on{background:#d4f5dd}.off{background:#fde0e0}#msg{margin:8px 0;color:#b00020}
 .b{padding:2px 8px;border-radius:10px;font-size:12px;font-weight:600}
 .EN_COLA{background:#fff3cd}.ENVIADO{background:#dbe7ff}.FACTURADO{background:#d4f5dd}.RECHAZADO{background:#fde0e0}
-</style></head><body>
-<h1>RetailNova · Caja de tienda (POS)</h1>
-<small>Base de datos local de la tienda. Si se cae la red, las ventas se guardan en cola y se envían al ERP cuando vuelve.</small>
+.top{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.deny{background:#fde0e0;color:#8a1010;padding:10px 14px;border-radius:8px;margin:8px 0}
+</style><script src="/static/auth.js"></script></head><body>
+<div class="top"><div><h1>RetailNova · Caja de tienda (POS)</h1>
+<small>Base de datos local de la tienda. Si se cae la red, las ventas se guardan en cola y se envían al ERP cuando vuelve.</small></div><div id="session"></div></div><div id="gate"></div>
 <div id="net"><span id="netTxt"></span><button id="netBtn" onclick="toggle()"></button></div>
 <h3>Productos <small id="catState"></small></h3><table id="cat"></table>
 <p><button onclick="sell()">Registrar venta</button></p><div id="msg"></div>
@@ -24,22 +26,23 @@ async function loadNet(){online=(await (await fetch('/network')).json()).online;
   $('net').className=online?'on':'off';
   $('netTxt').textContent=online?'🟢 Red conectada con la sede central':'🔴 Sin red: las ventas quedan en cola local';
   $('netBtn').textContent=online?'Simular caída de red':'Restablecer red';}
-async function toggle(){await fetch('/network',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({online:!online})});
+async function toggle(){const r=await Auth.api('/network',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({online:!online})});if(!r.ok){gate(r);return}
   await loadNet();loadSales();setTimeout(loadCat,2500);}
 async function loadCat(){const j=await (await fetch('/catalog')).json();
   $('catState').textContent=j.online?'(catálogo del ERP)':'(copia local del catálogo)';
   $('cat').innerHTML='<tr><th>SKU</th><th>Producto</th><th>Precio sin IGV</th><th>Stock central</th><th>Cantidad</th></tr>'+
     j.products.map(p=>`<tr><td>${esc(p.sku)}</td><td>${esc(p.name)}</td><td>S/ ${esc(p.price)}</td><td>${esc(p.stock)}</td>
     <td><input type="number" min="0" value="0" data-sku="${esc(p.sku)}" style="width:70px"></td></tr>`).join('');}
-async function loadSales(){const ss=await (await fetch('/sales')).json();
+function gate(r){$('gate').innerHTML=r.ok?'':(r.status===401?'<div class="deny">Inicia sesión como cajero para usar la caja.</div>':`<div class="deny">⛔ ${esc(r.data?.detail||'Sin permiso')}</div>`);}
+async function loadSales(){const r=await Auth.api('/sales');gate(r);if(!r.ok){$('sales').innerHTML='';return}const ss=r.data;
   $('sales').innerHTML='<tr><th>Venta</th><th>Ítems</th><th>Estado</th><th>Factura ERP</th><th>Total</th><th>Detalle</th></tr>'+
     ss.map(s=>`<tr><td>${esc(s.id.slice(0,8))}</td><td>${esc(s.items.map(i=>i.qty+'× '+i.sku).join(', '))}</td>
     <td><span class="b ${esc(s.status)}">${esc(s.status)}</span></td><td>${esc(s.invoice_id??'—')}</td>
     <td>${s.total?'S/ '+esc(s.total):'—'}</td><td>${esc(s.reason??'')}</td></tr>`).join('');}
 async function sell(){const items=[...document.querySelectorAll('#cat input')].map(i=>({sku:i.dataset.sku,qty:+i.value})).filter(i=>i.qty>0);
   $('msg').textContent='';if(!items.length){$('msg').textContent='Elige al menos un producto.';return}
-  const r=await fetch('/sales',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({items})});
-  if(!r.ok){$('msg').textContent='Error al registrar';return}
+  const r=await Auth.api('/sales',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({items})});
+  if(!r.ok){gate(r);return}
   document.querySelectorAll('#cat input').forEach(i=>i.value=0);loadSales();}
-loadNet();loadCat();loadSales();setInterval(loadSales,2000);
+(async()=>{await Auth.handleCallback();Auth.bar('session');loadNet();loadCat();loadSales();setInterval(loadSales,2000);})();
 </script></body></html>

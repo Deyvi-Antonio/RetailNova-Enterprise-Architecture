@@ -1,6 +1,7 @@
 """Llamadas síncronas a otros sistemas (CRM y ERP) por su API."""
 import os
 import httpx
+from . import auth
 
 CRM_URL = os.getenv("CRM_URL", "")
 ERP_URL = os.getenv("ERP_URL", "")
@@ -12,9 +13,11 @@ def upsert_customer(payload: dict) -> str:
     if not CRM_URL:
         raise RuntimeError("CRM_URL no configurado")
     try:
-        r = httpx.post(f"{CRM_URL}/customers", json=payload, timeout=5)
+        r = httpx.post(f"{CRM_URL}/customers", json=payload, headers=auth.service_headers(), timeout=5)
     except httpx.HTTPError:
-        raise RuntimeError("CRM no disponible")
+        raise RuntimeError("CRM o Keycloak no disponible")
+    if r.status_code in (401, 403, 503):
+        raise RuntimeError(f"El CRM rechazó la credencial del e-commerce ({r.status_code})")
     if r.status_code in (200, 201):
         return r.json()["customer_id"]
     raise ValueError(str(r.json().get("detail", "Datos de cliente inválidos")))

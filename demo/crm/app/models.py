@@ -21,3 +21,17 @@ class Customer(Base):
     email: Mapped[str] = mapped_column(String(200), unique=True, index=True)
     phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class AuditLog(Base):
+    """Registro de accesos a datos personales (Ley N.º 29733 y su reglamento, art. 46):
+    quién, cuándo, qué acción, sobre qué dato y con qué resultado."""
+    __tablename__ = "audit_log"
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, index=True)
+    username: Mapped[str] = mapped_column(String(100))
+    roles: Mapped[str] = mapped_column(String(200))
+    action: Mapped[str] = mapped_column(String(40))
+    resource: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    result: Mapped[str] = mapped_column(String(20))  # PERMITIDO | DENEGADO
+    ip: Mapped[str | None] = mapped_column(String(64), nullable=True)
